@@ -400,13 +400,19 @@ class DmsfController < ApplicationController
     end
   end
 
+  def zip_encoding
+    if request.env['HTTP_USER_AGENT'].downcase.match(/windows/i)
+      Encoding::CP932
+    end
+  end
+
   def zip_entries(zip, selected_folders, selected_files)
     member = Member.where(:user_id => User.current.id, :project_id => @project.id).first
     if selected_folders && selected_folders.is_a?(Array)
       selected_folders.each do |selected_folder_id|
         folder = DmsfFolder.visible.find_by_id selected_folder_id
         if folder
-          zip.add_folder(folder, member, (folder.dmsf_folder.dmsf_path_str if folder.dmsf_folder))
+          zip.add_folder(folder, member, (folder.dmsf_folder.dmsf_path_str if folder.dmsf_folder), zip_encoding)
         else
           raise FileNotFound
         end
@@ -421,7 +427,7 @@ class DmsfController < ApplicationController
         unless (file.project == @project) || User.current.allowed_to?(:view_dmsf_files, file.project)
           raise DmsfAccessError
         end
-        zip.add_file(file, member, (file.dmsf_folder.dmsf_path_str if file.dmsf_folder)) if file
+        zip.add_file(file, member, (file.dmsf_folder.dmsf_path_str if file.dmsf_folder), zip_encoding) if file
       end
     end
     max_files = Setting.plugin_redmine_dmsf['dmsf_max_file_download'].to_i

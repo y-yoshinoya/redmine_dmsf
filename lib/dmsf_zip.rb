@@ -43,12 +43,12 @@ class DmsfZip
     @zip.close if @zip
   end
 
-  def add_file(file, member, root_path = nil)
+  def add_file(file, member, root_path = nil, encoding = nil)
     unless @files.include?(file)
       string_path = file.dmsf_folder.nil? ? '' : "#{file.dmsf_folder.dmsf_path_str}/"
       string_path = string_path[(root_path.length + 1) .. string_path.length] if root_path
       string_path += file.formatted_name(member ? member.title_format : nil)
-      @zip_file.put_next_entry(string_path)
+      @zip_file.put_next_entry(encoding ? string_path.encode(encoding, invalid: :replace) : string_path)
       File.open(file.last_revision.disk_file, 'rb') do |f|
         while (buffer = f.read(8192))
           @zip_file.write(buffer)
@@ -58,14 +58,14 @@ class DmsfZip
     end
   end
 
-  def add_folder(folder, member, root_path = nil)
+  def add_folder(folder, member, root_path = nil, encoding = nil)
     unless @folders.include?(folder)
       string_path = "#{folder.dmsf_path_str}/"
       string_path = string_path[(root_path.length + 1) .. string_path.length] if root_path
-      @zip_file.put_next_entry(string_path)
+      @zip_file.put_next_entry(encoding ? string_path.encode(encoding, invalid: :replace) : string_path)
       @folders << folder
-      folder.dmsf_folders.visible.each { |subfolder| self.add_folder(subfolder, member, root_path) }
-      folder.dmsf_files.visible.each { |file| self.add_file(file, member, root_path) }
+      folder.dmsf_folders.visible.each { |subfolder| self.add_folder(subfolder, member, root_path, encoding) }
+      folder.dmsf_files.visible.each { |file| self.add_file(file, member, root_path, encoding) }
     end
   end
 
