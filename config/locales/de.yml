@@ -4,7 +4,7 @@
 #
 # Copyright (C) 2011    Terrence Miller
 # Copyright (C) 2013    Christian Wetting <christian.wetting@kontron.com>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,8 +21,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 de:
-  dmsf: DMS
-  label_dmsf_file_plural: DMS
+  dmsf: DMS # Custom fields tab title
+  label_dmsf_file_plural: Dokumente
   label_dmsf_file_revision_plural: Dokumenteversion
   label_dmsf_file_revision_access_plural: Dokumentezugriffe
   warning_no_entries_selected: Keine Einträge ausgewählt
@@ -121,26 +121,26 @@ de:
   option_version_minor: Unterversion
   option_version_major: Hauptversion
   label_new_content: Neuer Inhalt
-  label_maximum_files_upload: Maximal hochzuladende Dateien
+  label_maximum_files_upload: Maximal zulässige Anzahl der hochgeladenen Dateien
   option_version_custom: Benutzerdefinierte
-  note_maximum_number_of_files_uploaded: Beschränkt die Anzahl der maximal auf einmal hochladbaren Dateien. 0 bedeutet unbeschränkt.
-  label_maximum_files_download: Maximal herunterzuladende Dateien
-  note_maximum_number_of_files_downloaded: Beschränkt die Anzahl der maximal auf einmal herunterladbaren Dateien (per ZIP oder Mail). 0 bedeutet unbeschränkt.
+  note_maximum_number_of_files_uploaded: Beschränkt die maximale Anzahl der  Dateien, die auf einmal hochgeladen werden können. 0 bedeutet unbeschränkt.
+  label_maximum_files_download: Maximal zulässige Anzahl der Dateien, die heruntergeladen werden können.
+  note_maximum_number_of_files_downloaded: Beschränkt die maximale Anzahl, der Dateien, die auf einmal heruntergeladen werden können. (per ZIP oder Mail). 0 bedeutet unbeschränkt.
   label_file_storage_directory: Verzeichnis für die Dateiablage
   label_index_database: Index Datenbank
-  label_stemming_language: Sprache für die Normalformreduktion
+  label_stemming_language: Stemming-Sprache
   note_possible_values: Mögliche Werte
   note_pass_none_to_disable_stemming: "schreibe 'none', um die Normalformreduktion zu unterdrücken"
   label_stem_strategy: Normalformreduktionsform
   option_stem_none: reduziere nichts (Voreinstellung)
   option_stem_some: reduziere manches
   option_stem_all: reduziere alles
-  label_stemming_description: Diese Einstellung beeinflusst, wie der Parser den Normalformreduktionsalgorithmus anwendet. Voreingestellt ist STEM_NONE. Die möglichen Werte sind
-  note_do_not_stem: Keine Normalformreduktion durchführen.
-  note_stem_some: "Suche nach reduzierten Formen aller Wörter mit Ausnahme von Wörtern, die mit einem Großbuchstaben beginnen, bestimmten Zeichen beinhalten, oder von Operatoren mit Positionsinformationen verwendet werden. Reduzierten Formen wird ein 'Z' vorangestellt."
+  label_stemming_description: Diese Einstellung beeinflusst, wie der Parser den Stemming-Algorithmus anwendet. Voreingestellt ist STEM_NONE. Die möglichen Werte sind
+  note_do_not_stem: Kein Stemming durchführen.
+  note_stem_some: Suche nach reduzierten Formen aller Wörter mit Ausnahme von Wörtern, die mit einem Großbuchstaben beginnen,von bestimmten Zeichen gefolgt werden oder von einem Operator verwendet werden, die Positionsinformationen  braucht. Reduzierten Formen wird ein 'Z' vorangestellt.
   note_stem_all: "Suche nach reduzierten Formen aller Wörter (Achtung: Kein 'Z'-Präfix wird hinzugefügt)."
-  note_stemming_applied: Beachte, dass der Normalformreduzierungsalgorithmus nur bei Wörtern in Wahrscheinlichkeitsfeldern angewendert wird - boolesche Filterausdrücke werden nie reduziert.
-  label_default_notifications: standardmäßge Dateibenachrichtigungen
+  note_stemming_applied: Beachten Sie, dass der Stemming- Algorithmus nur bei Wörtern in Wahrscheinlichkeitsfeldern angewendet wird - boolesche Filtereinstellungen werden nie reduziert.
+  label_default_notifications: Standardmäßge Dateibenachrichtigungen
   heading_uploaded_files: Hochgeladene Dateien
   submit_commit: OK
   link_documents: Dateien
@@ -154,6 +154,7 @@ de:
   permission_force_file_unlock: Erzwinge Aufhebung der Dateisperre
   permission_manage_workflows: Workflows verwalten
   permission_file_delete: Datei löschen
+  permission_display_system_folders: Display system folders
   label_file: Datei
   field_folder: Ordner
   error_create_cycle_in_folder_dependency: Zirkelabhängigkeit in der Ordnerstruktur erstellt
@@ -173,8 +174,8 @@ de:
   error_file_can_not_be_created: Datei kann nicht in dem gewählten Ordner erstellt werden.
   error_wrong_zip_encoding: Falsche ZIP-Kodierung
   warning_xapian_not_available: Xapian steht nicht zur Verfügung
-  menu_dmsf: DMS
-  label_physical_file_delete: Physisches Dateilöschen
+  menu_dmsf: DMS  # Project tab title
+  label_physical_file_delete: Datei physisch löschen
   user_is_not_project_member: Du bist kein Projektmitglied
   heading_access_downloads_emails: Downloads oder Emailversand
   heading_access_first: Erste
@@ -182,7 +183,7 @@ de:
   label_dmsf_updated: aktualisiert
   label_dmsf_downloaded: gespeichert
   title_total_size_of_all_files: Gesamtgröße aller Dateien in diesem Ordner
-  project_module_dmsf: DMS
+  project_module_dmsf: DMS  # Project module name
   warning_no_project_to_copy_file_to: Kein Projekt, in das die Datei kopiert werden kann.
   comment_copied_from: "Kopiert aus %{source}"
   notice_file_copied: Datei kopiert
@@ -201,8 +202,8 @@ de:
   notice_folder_copied: Ordner kopiert
 
   error_max_email_filesize_exceeded: "Maximale Dateigröße der Anlage wurde überschritten. (%{number} MB)"
-  note_maximum_email_filesize: Maximale Dateigröße der Anlage. 0 bedeutet keinen Limit. Angabe in MB.
-  label_maximum_email_filesize: Maximale Dateigröße der Anlage
+  note_maximum_email_filesize: Maximale Dateigröße der Anhänge, die per E-mail verschickt werden können. 0 bedeutet keinen Limit. Angabe in MB.
+  label_maximum_email_filesize: Maximale Dateigröße der Anhänge
   header_minimum_filesize: Dateifehler wegen minimaler Dateigröße.
   error_minimum_filesize: "Die Datei %{file} ist 0 Bytes groß und wird deswegen nicht angehängt."
   parent_directory: übergeordnetes Verzeichnis
@@ -221,7 +222,7 @@ de:
   select_option_webdav_readonly: nur Lesen
   select_option_webdav_readwrite: Lesen/Schreiben
   label_webdav_strategy: Webdav Strategie
-  note_webdav_strategy: Erlaubt dem Administrator den Wechsel der WebDav Nutzung zwischen nur lesend und auch schreibenden Zugriffen.
+  note_webdav_strategy: Erlaubt dem Administrator den Wechsel der WebDav Rolle für die Endbenutzer zwischen Nur-Lesen oder Lesen-und-Schreiben.
 
   error_unable_delete_dmsf_workflow: Konnte den Workflow nicht löschen
   error_empty_note: Die Notiz darf nicht leer sein.
@@ -237,7 +238,6 @@ de:
   label_dmsf_workflow_step_plural: Schritte
   label_dmsf_workflow_approval: Genehmigung
   label_dmsf_workflow_approval_plural: Genehmigungen
-  label_dmsf: DMS
   label_dmsf_wokflow_action_approve: Genehmigen
   label_dmsf_wokflow_action_reject: Ablehnen
   label_dmsf_wokflow_action_delegate: Deligieren an
@@ -281,16 +281,16 @@ de:
   text_email_to_see_status: Um den aktuellen Status des Genehmigungs-Workflows zu sehen klicke auf den Workflowstatus zur Datei in
 
   title_create_link: Verknüpfung anlegen
-  label_link_from: Verlinke von
-  label_link_to: Verlinke zu
+  label_link_from: Link von
+  label_link_to: Verlinke mit
   label_notifications_on: Benachrichtigungen ein
   label_notifications_off: Benachrichtigungen aus
   field_target_file: Quelldatei
   title_download_entries: Download entries
-  label_external: Außen
+  label_external: Extern
 
   label_link_name: Name der Verknüpfung
-  label_link_external_url: URL
+  field_external_url: URL
   label_target_folder: Zielordner
   label_source_folder: Quellordner
   label_target_project: Zielprojekt
@@ -304,10 +304,10 @@ de:
   label_links_only: nur Verknüpfungen
 
   label_display_notified_recipients: Zeige benachrichtigte Empfänger
-  note_display_notified_recipients: Der User wird über alle Empfänger der Emailbenachrichtigung informiert.
+  note_display_notified_recipients: Der User wird über über den Empfang der E-mail Benachrichtigungen von allen Empfängern informiert.
   warning_email_notifications: "Emailbenachrichtigung wurde gesendet an %{to}"
 
-  link_trash_bin: Trash bin
+  link_trash_bin: Papierkorb
   title_restore: Restore
   notice_dmsf_file_restored: The document has been successfully restored
   notice_dmsf_folder_restored: The folder has been successfully restored
@@ -321,7 +321,7 @@ de:
   error_lock_exclusively: Unable to lock exclusively an already-locked resource
   error_unlock_parent_locked: Unlock failed - resource parent is locked
 
-  field_dmsf_tree_view: Navigate folders in a tree
+  field_dmsf_tree_view: Ordner in der Baumstruktur durchstöbern
   label_dmsf_version: Version
 
   locked_documents: Gesperrte Dateien
@@ -333,3 +333,36 @@ de:
   label_drag_drop: Modern
 
   error_maximum_upload_filecount: "Nicht mehr als %{filecount} Datai(en) kann man hochladen."
+
+  label_public_urls: Öffentliches URLs gültig bis
+
+  label_webdav: WebDAV
+  label_full_text: Full-text search
+  link_extension: Ext
+
+  label_memcached_servers: Memcached Server Adresse
+  text_memcached_servers: Only a single server is supported, if empty then caching is disabled. After changing this, the application must be restarted!
+
+  label_webdav_ignore: Ignored files patterns
+  note_webdav_ignore: A regular expresion with filenames to ignore by PUT requests.
+    
+  label_webdav_disable_versioning: No versioning files patterns
+  note_webdav_disable_versioning: A regular expression that disables versioning for matching files. The default pattern matches temporary files created by MsOffice.
+
+  label_dmsf_keep_documents_locked: Keep documents locked
+  note_dmsf_keep_documents_locked: Documents will be kept locked when approved
+  note_global: (global)
+  field_dmsf_not_inheritable: Not inheritable
+  
+  label_webdav_use_project_names: Use project name for project folder
+  note_webdav_use_project_names: Use project names instead of project identifier for project folders.
+
+  label_last_approver: Last approver
+
+  label_act_as_attachable: Act as attachable
+  note_dmsf_act_as_attachable: Allows to attach documents to objects e.g. issues.
+
+  label_user_search_add: Search for user to add
+
+  label_dmsf_attachments: DMS Anhänge
+  label_basic_attachments: Dateianhängen

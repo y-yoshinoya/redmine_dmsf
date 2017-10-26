@@ -4,7 +4,7 @@
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
 # Copyright (C) 2012    Daniel Munn <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -33,6 +33,7 @@ class DmsfUpload
   attr_accessor :locked
   attr_accessor :workflow
   attr_accessor :custom_values
+  attr_accessor :tempfile_path
 
   def disk_file
     "#{DmsfHelper.temp_dir}/#{self.disk_filename}"
@@ -45,15 +46,14 @@ class DmsfUpload
         :disk_filename => DmsfHelper.temp_filename(a.filename),
         :content_type => a.content_type,
         :original_filename => a.filename,
-        :comment => uploaded_file[:description]
+        :comment => uploaded_file[:description],
+        :tempfile_path => a.diskfile
       }
-      FileUtils.mv(a.diskfile, "#{DmsfHelper.temp_dir}/#{uploaded[:disk_filename]}")
-      a.destroy
-      upload = DmsfUpload.new(project, folder, uploaded)
+      DmsfUpload.new(project, folder, uploaded)
     else
       Rails.logger.error "An attachment not found by its token: #{uploaded_file[:token]}"
+      nil
     end
-    upload
   end
 
   def initialize(project, folder, uploaded)
@@ -67,7 +67,12 @@ class DmsfUpload
 
     @disk_filename = uploaded[:disk_filename]
     @mime_type = uploaded[:content_type]
-    @size = File.size(disk_file)
+    @size = File.size?(uploaded[:tempfile_path])
+    unless @size
+      @size = 0
+      Rails.logger.error "Cannot find #{uploaded[:tempfile_path]}"
+    end
+    @tempfile_path = uploaded[:tempfile_path]
 
     if file.nil? || file.last_revision.nil?
       @title = DmsfFileRevision.filename_to_title(@name)
@@ -76,7 +81,7 @@ class DmsfUpload
       @minor_version = 0
       @workflow = nil
       file = DmsfFile.new
-      file.project = @project
+      file.project_id = project.id
       revision = DmsfFileRevision.new
       revision.dmsf_file = file
       @custom_values = revision.custom_field_values

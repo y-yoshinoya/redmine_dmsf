@@ -4,7 +4,7 @@
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
 # Copyright (C) 2012    Daniel Munn <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -69,9 +69,16 @@ module RedmineDmsf
       l.lock_scope = scope
       l.user = User.current
       l.expires_at = expire
+      l.dmsf_file_last_revision_id = self.last_revision.id if self.is_a?(DmsfFile)
       l.save!
       reload
       locks.reload
+      
+      # Invalidate PROPFIND (for parent folder)
+      RedmineDmsf::Webdav::Cache.invalidate_item(self.propfind_cache_key)
+      # Invalidate PROPSTATS
+      RedmineDmsf::Webdav::Cache.delete("PROPSTATS/#{RedmineDmsf::Webdav::ProjectResource.create_project_name(self.project)}/#{self.dmsf_path_str}") if self.is_a?(DmsfFolder)
+      RedmineDmsf::Webdav::Cache.delete("PROPSTATS/#{self.id}-#{self.last_revision.id}") if self.is_a?(DmsfFile)
       return l
     end
 
@@ -135,6 +142,13 @@ module RedmineDmsf
           end
         end
       end
+      
+      # Invalidate PROPFIND (for parent folder)
+      RedmineDmsf::Webdav::Cache.invalidate_item(self.propfind_cache_key)
+      # Invalidate PROPSTATS 
+      RedmineDmsf::Webdav::Cache.delete("PROPSTATS/#{RedmineDmsf::Webdav::ProjectResource.create_project_name(self.project)}/#{self.dmsf_path_str}") if self.is_a?(DmsfFolder)
+      RedmineDmsf::Webdav::Cache.delete("PROPSTATS/#{self.id}-#{self.last_revision.id}") if self.is_a?(DmsfFile)
+      
       reload
       locks.reload
     end

@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 #
 # This program is free software; you can redistribute it and/or
@@ -21,7 +21,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 ru:
-  dmsf: DMSF
+  dmsf: DMS  # Custom fields tab title
   label_dmsf_file_plural: Файлы
   label_dmsf_file_revision_plural: Изменения документов
   label_dmsf_file_revision_access_plural: Доступы к документам
@@ -84,7 +84,7 @@ ru:
   title_lock_file: Заблокируйте файл, чтобы запретить его изменение другими участниками
   title_download_checked: Скачать выбранные файлы
   title_send_checked_by_email: Отправить выбранные файлы по электронной почте
-  link_user_preferences: Ваши настройки DMSF проекта
+  link_user_preferences: Ваши настройки DMS проекта
   heading_send_documents_by_email: Отправить документы по электронной почте
   label_email_from: От
   label_email_to: Кому
@@ -104,7 +104,7 @@ ru:
   select_option_default: По умолчанию
   select_option_deactivated: Отключено
   select_option_activated: Включено
-  label_title_format: Title format
+  label_title_format: Формат заголовка
   text_title_format: "Document title format for download (%t - title, %f - file, %d - date, %v - version, %i - ID, %r - revision). Example: %t_%v"
   title_save_preferences: Сохранить настройки
   heading_revisions: Редакции
@@ -154,6 +154,7 @@ ru:
   permission_force_file_unlock: Разблокировка любых файлов
   permission_manage_workflows: Управление согласованиями
   permission_file_delete: Удаление документов
+  permission_display_system_folders: Display system folders
   label_file: Файл
   field_folder: Папка
   error_create_cycle_in_folder_dependency: создать циклическую зависимость в папке
@@ -173,7 +174,7 @@ ru:
   error_file_can_not_be_created: Файл не может быть создан в каталоге хранения файлов
   error_wrong_zip_encoding: Неверная кодировка zip
   warning_xapian_not_available: Xapian не доступен
-  menu_dmsf: Документы
+  menu_dmsf: Документы  # Project tab title
   label_physical_file_delete: Физическое удаление файла
   user_is_not_project_member: Вы не являетесь участником проекта
   heading_access_downloads_emails: Скачивание / Отправка по почте
@@ -182,7 +183,7 @@ ru:
   label_dmsf_updated: Документ обновлен
   label_dmsf_downloaded: Документ скачан
   title_total_size_of_all_files: Общий размер всех файлов в этой папке
-  project_module_dmsf: DMSF
+  project_module_dmsf: DMS  # Project module name
   warning_no_project_to_copy_file_to: Не выбран проект, в который нужно скопировать файл
   comment_copied_from: "Скопировано из %{source}"
   notice_file_copied: Файл скопирован
@@ -237,7 +238,6 @@ ru:
   label_dmsf_workflow_step_plural: Шаги
   label_dmsf_workflow_approval: Утверждение
   label_dmsf_workflow_approval_plural: Утверждения
-  label_dmsf: DMSF
   label_dmsf_wokflow_action_approve: Согласовать
   label_dmsf_wokflow_action_reject: Отклонить
   label_dmsf_wokflow_action_delegate: Делегировать
@@ -290,7 +290,7 @@ ru:
   label_external: Внешний
 
   label_link_name: Наименование ссылки
-  label_link_external_url: URL
+  field_external_url: URL
   label_target_folder: Целевая папка
   label_source_folder: Исходная папка
   label_target_project: Целевой проект
@@ -321,7 +321,7 @@ ru:
   error_lock_exclusively: Невозможно эксклюзивно заблокировать уже забловированный ресурс
   error_unlock_parent_locked: Разблокировка не удалась - родительская запись заблокирована
 
-  field_dmsf_tree_view: Navigate folders in a tree
+  field_dmsf_tree_view: Навигация по папкам в виде дерева
   label_dmsf_version: Версия
 
   locked_documents: Заблокированные документы
@@ -329,7 +329,43 @@ ru:
 
   label_maximum_ajax_upload_filesize: Максимальный размер файла, загружаемого посредством AJAX
   note_maximum_ajax_upload_filesize: Превышает максимальный размер файла, загружаемого посредством интерфейса AJAX, для загрузки можно использовать стандартную форму Redmine. Размер указан в MB.
-  label_classic: Classic
-  label_drag_drop: Modern
+  label_classic: Обычный
+  label_drag_drop: Перетаскивание
 
-  error_maximum_upload_filecount: "No more than %{filecount} file(s) can be uploaded."
+  error_maximum_upload_filecount: "Не более %{filecount} файла(ов) может быть загружено."
+
+  label_public_urls: Public URLs valid to
+
+  label_webdav: WebDAV
+  label_full_text: Full-text search
+  link_extension: Ext
+
+  label_memcached_servers: Memcached server address
+  text_memcached_servers: Only a single server is supported, if empty then caching is disabled. After changing this, the application must be restarted!
+
+  label_webdav_ignore: Ignored files patterns
+  note_webdav_ignore: A regular expresion with filenames to ignore by PUT requests.
+
+  label_document_url: Url
+  label_last_revision_id: Revision
+    
+  label_webdav_disable_versioning: No versioning files patterns
+  note_webdav_disable_versioning: A regular expression that disables versioning for matching files. The default pattern matches temporary files created by MsOffice.
+
+  label_dmsf_keep_documents_locked: Keep documents locked
+  note_dmsf_keep_documents_locked: Documents will be kept locked when approved
+  note_global: (global)
+  field_dmsf_not_inheritable: Not inheritable
+  
+  label_webdav_use_project_names: Use project name for project folder
+  note_webdav_use_project_names: Use project names instead of project identifier for project folders.
+
+  label_last_approver: Last approver
+
+  label_act_as_attachable: Act as attachable
+  note_dmsf_act_as_attachable: Allows to attach documents to objects e.g. issues.
+
+  label_user_search_add: Search for user to add
+
+  label_dmsf_attachments: DMS Attachments
+  label_basic_attachments: Basic Attachments

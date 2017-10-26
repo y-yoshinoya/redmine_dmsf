@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2012    Daniel Munn <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,14 +22,19 @@
 module RedmineDmsf
   module Webdav
     class IndexResource < BaseResource
+
+      def initialize(*args)
+        super(*args)
+        @projects = nil
+      end
       
       def children
         unless @projects
           @projects = []
-          Project.select(:identifier).has_module(:dmsf).where(
+          Project.select(:id, :identifier, :name).has_module(:dmsf).where(
             Project.allowed_to_condition(
-              User.current, :view_dmsf_folders)).order('lft').all.each do |p|
-            @projects << child(p.identifier)
+              User.current, :view_dmsf_folders)).order('lft').each do |p|
+            @projects << child_project(p)
           end
         end
         @projects
@@ -47,12 +52,13 @@ module RedmineDmsf
         Time.now
       end
 
-      def last_modified=
-        MethodNotAllowed
-      end
-
       # Index resource ALWAYS exists
       def exist?
+        true
+      end
+      
+      # Index resource ALWAYS really exists
+      def really_exist?
         true
       end
 

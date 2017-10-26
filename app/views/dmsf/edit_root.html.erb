@@ -5,7 +5,7 @@
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
 # Copyright (C) 2012    Daniel Munn  <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,12 +30,12 @@
       <%= link_to(l(:label_notifications_off), 
         notify_deactivate_dmsf_path(:id => @project),
         :title => l(:title_notifications_active_deactivate), 
-        :class => 'icon dmsf_icon-notification-on') %>
+        :class => 'icon icon-email') %>
     <% else %>        
       <%= link_to(l(:label_notifications_on),
         notify_activate_dmsf_path(:id => @project),
         :title => l(:title_notifications_active_deactivate), 
-        :class => 'icon dmsf_icon-notification-off') %>
+        :class => 'icon icon-email-add') %>
     <% end %>  
   <% end %>
 </div>

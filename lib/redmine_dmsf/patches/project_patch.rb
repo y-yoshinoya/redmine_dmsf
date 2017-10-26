@@ -4,7 +4,7 @@
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
 # Copyright (C) 2012    Daniel Munn <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-15 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,23 +20,21 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require_dependency 'project'
-
 module RedmineDmsf
   module Patches
     module ProjectPatch
 
       def self.included(base) # :nodoc:
         base.send(:include, InstanceMethods)
+        base.send :include, Redmine::NestedSet::Traversing
         base.class_eval do
           unloadable
           alias_method_chain :copy, :dmsf
 
           has_many :dmsf_files, -> { where(dmsf_folder_id: nil).order(:name) },
             :class_name => 'DmsfFile', :foreign_key => 'project_id', :dependent => :destroy
-          has_many :dmsf_folders, -> { where(dmsf_folder_id: nil).order(:title) },
-            :class_name => 'DmsfFolder', :foreign_key => 'project_id',
-            :dependent => :destroy
+          has_many :dmsf_folders, ->{ where(:dmsf_folder_id => nil).order(:title) },
+            :class_name => 'DmsfFolder', :foreign_key => 'project_id', :dependent => :destroy
           has_many :dmsf_workflows, :dependent => :destroy
           has_many :folder_links, -> { where dmsf_folder_id: nil, target_type: 'DmsfFolder' },
             :class_name => 'DmsfLink', :foreign_key => 'project_id', :dependent => :destroy
@@ -48,6 +46,11 @@ module RedmineDmsf
             :class_name => 'DmsfLink', :foreign_key => 'project_id', :dependent => :destroy
 
           before_save :set_default_dmsf_notification
+
+          validates_length_of :dmsf_description, :maximum => 65535
+
+          Project.const_set(:ATTACHABLE_DMS_AND_ATTACHMENTS, 1)
+          Project.const_set(:ATTACHABLE_ATTACHMENTS, 2)
         end
       end
 

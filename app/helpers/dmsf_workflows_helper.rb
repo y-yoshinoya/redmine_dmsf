@@ -2,7 +2,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,11 +20,11 @@
 
 module DmsfWorkflowsHelper
 
-  def render_principals_for_new_dmsf_workflow_users(workflow, dmsf_workflow_step_assignment_id, dmsf_file_revision_id)
+  def render_principals_for_new_dmsf_workflow_users(workflow, dmsf_workflow_step_assignment_id = nil, dmsf_file_revision_id = nil)
     scope = workflow.delegates(params[:q], dmsf_workflow_step_assignment_id, dmsf_file_revision_id)
     principal_count = scope.count
-    principal_pages = Redmine::Pagination::Paginator.new principal_count, 10, params['page']
-    principals = scope.offset(principal_pages.offset).limit(principal_pages.per_page).all
+    principal_pages = Redmine::Pagination::Paginator.new principal_count, 100, params['page']
+    principals = scope.offset(principal_pages.offset).limit(principal_pages.per_page).to_a
 
     # Delegation
     if dmsf_workflow_step_assignment_id
@@ -42,15 +42,14 @@ module DmsfWorkflowsHelper
       link_to text, autocomplete_for_user_dmsf_workflow_path(workflow, parameters.merge(:q => params[:q], :format => 'js')), :remote => true
     }
 
-    s + content_tag('p', links, :class => 'pagination')
-    s.html_safe
+    s + content_tag('span', links, :class => 'pagination')
   end
 
   def dmsf_workflow_steps_options_for_select(steps)
     options = Array.new
     options << [l(:dmsf_new_step), 0]
     steps.each do |step|
-      options << [step.to_s, step]
+      options << [step.name.present? ? step.name : step.step.to_s, step.step]
     end
     options_for_select(options, 0)
   end
@@ -62,7 +61,7 @@ module DmsfWorkflowsHelper
       if wf.project_id
         options << [wf.name, wf.id]
       else
-        options << ["#{wf.name} (global)", wf.id]
+        options << ["#{wf.name} #{l(:note_global)}", wf.id]
       end
     end
     options_for_select(options, :selected => dmsf_workflow_id)
@@ -84,7 +83,7 @@ module DmsfWorkflowsHelper
         end
       else
         # Global approval workflows
-        options << [wf.name, wf.id]
+        options << ["#{wf.name} #{l(:note_global)}", wf.id]
       end
     end
     options_for_select(options, :selected => dmsf_workflow_id)

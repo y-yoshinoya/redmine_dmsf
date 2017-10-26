@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,8 +26,16 @@ class DmsfFileRevisionCustomField < CustomField
   end
 
   def compare_values?(x, y)
-    if x.is_a?(Array) && y.is_a?(Array) && !y.empty?
-      x.include? y[0]
+    if x.is_a?(Array) && y.is_a?(Array)
+      y.reject!{ |a| a.empty? }
+      return true if y.empty?
+      x.reject!{ |a| a.empty? }
+      y.each do |b|
+        if x.include?(b)
+          return true
+        end
+      end
+      return false
     else
       x == y
     end

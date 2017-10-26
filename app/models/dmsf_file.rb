@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,8 @@ begin
   require 'xapian'
   $xapian_bindings_available = true
 rescue LoadError
-  Rails.logger.info 'REDMAIN_XAPIAN ERROR: No Ruby bindings for Xapian installed !!. PLEASE install Xapian search engine interface for Ruby.'
+  Rails.logger.warn %{No Xapian search engine interface for Ruby installed => Full-text search won't be available.
+                      Install a ruby-xapian package or an alternative Xapian binding (https://xapian.org).}
   $xapian_bindings_available = false
 end
 
@@ -36,29 +37,29 @@ class DmsfFile < ActiveRecord::Base
   belongs_to :dmsf_folder
   belongs_to :deleted_by_user, :class_name => 'User', :foreign_key => 'deleted_by_user_id'
 
-  has_many :dmsf_file_revisions, -> { order("#{DmsfFileRevision.table_name}.major_version DESC, #{DmsfFileRevision.table_name}.minor_version DESC, #{DmsfFileRevision.table_name}.updated_at DESC") },
+  has_many :dmsf_file_revisions, -> { order("#{DmsfFileRevision.table_name}.id DESC") },
     :dependent => :destroy
   has_many :locks, -> { where(entity_type: 0).order("#{DmsfLock.table_name}.updated_at DESC") },
     :class_name => 'DmsfLock', :foreign_key => 'entity_id', :dependent => :destroy
   has_many :referenced_links, -> { where target_type: DmsfFile.model_name.to_s},
     :class_name => 'DmsfLink', :foreign_key => 'target_id', :dependent => :destroy
+  has_many :dmsf_public_urls, :dependent => :destroy
 
-  STATUS_DELETED = 1
-  STATUS_ACTIVE = 0
+  STATUS_DELETED = 1.freeze
+  STATUS_ACTIVE = 0.freeze
 
   scope :visible, -> { where(:deleted => STATUS_ACTIVE) }
   scope :deleted, -> { where(:deleted => STATUS_DELETED) }
 
   validates :name, :presence => true
-  validates_format_of :name, :with => DmsfFolder.invalid_characters,
+  validates_format_of :name, :with => DmsfFolder::INVALID_CHARACTERS,
     :message => l(:error_contains_invalid_character)
 
   validate :validates_name_uniqueness
 
   def validates_name_uniqueness
-    existing_file = DmsfFile.visible.find_file_by_name(self.project, self.dmsf_folder, self.name)
-    errors.add(:name, l('activerecord.errors.messages.taken')) unless
-      existing_file.nil? || existing_file.id == self.id
+    existing_file = DmsfFile.visible.findn_file_by_name(self.project_id, self.dmsf_folder, self.name)
+    errors.add(:name, l('activerecord.errors.messages.taken')) unless (existing_file.nil? || existing_file.id == self.id)
   end
 
   acts_as_event :title => Proc.new { |o| o.name },
@@ -67,7 +68,8 @@ class DmsfFile < ActiveRecord::Base
                   if desc
                     Redmine::Search.cache_store.delete("DmsfFile-#{o.id}")
                   else
-                    desc = o.description
+                    # Set desc to an empty string if o.description is nil
+                    desc = o.description.nil? ? '' : o.description
                     desc += ' / ' if o.description.present? && o.last_revision.comment.present?
                     desc += o.last_revision.comment if o.last_revision.comment.present?
                   end
@@ -82,46 +84,42 @@ class DmsfFile < ActiveRecord::Base
     :date_column => "#{table_name}.updated_at"
 
   before_create :default_values
+
   def default_values
-    @notifications = Setting.plugin_redmine_dmsf['dmsf_default_notifications']
-    if @notifications == '1'
+    if (Setting.plugin_redmine_dmsf['dmsf_default_notifications'] == '1') && (!self.dmsf_folder || !self.dmsf_folder.system)
       self.notification = true
-    else
-      self.notification = nil
     end
   end
 
-  @@storage_path = nil
+  def initialize
+    @project = nil
+    super
+  end
 
   def self.storage_path
-    return @@storage_path if @@storage_path.present?
     path = Setting.plugin_redmine_dmsf['dmsf_storage_directory']
-    path = Pathname(Redmine::Configuration['attachments_storage_path']).join('dmsf') if path.blank? && Redmine::Configuration['attachments_storage_path'].present?
-    path = Rails.root.join('files/dmsf').to_s if path.blank?
-    path.strip if path
-    path
-  end
-
-  # Lets introduce a write for storage path, that way we can also
-  # better interact from test-cases etc
-  def self.storage_path=(path)
-    begin
-      FileUtils.mkdir_p(path) unless File.exist?(path)
-    rescue Exception => e
-      Rails.logger.error e.message
+    if path.blank?
+      path = Pathname.new('files').join('dmsf').to_s
+    else
+      pn = Pathname.new(path)
+      return pn if pn.absolute?
     end
-    @@storage_path = path
+    Rails.root.join(path)
   end
 
   def self.find_file_by_name(project, folder, name)
+    self.findn_file_by_name(project.id, folder, name)
+  end
+
+  def self.findn_file_by_name(project_id, folder, name)
     where(
-      :project_id => project,
+      :project_id => project_id,
       :dmsf_folder_id => folder ? folder.id : nil,
       :name => name).visible.first
   end
 
   def last_revision
-    unless @last_revision
+    unless defined?(@last_revision)
       @last_revision = self.deleted? ? self.dmsf_file_revisions.first : self.dmsf_file_revisions.visible.first
     end
     @last_revision
@@ -136,15 +134,22 @@ class DmsfFile < ActiveRecord::Base
   end
 
   def delete(commit)
-    if locked_for_user?
+    if locked_for_user? && (!User.current.allowed_to?(:force_file_unlock, self.project))
       Rails.logger.info l(:error_file_is_locked)
-      errors[:base] << l(:error_file_is_locked)
+      if self.lock.reverse[0].user
+        errors[:base] << l(:title_locked_by_user, :user => self.lock.reverse[0].user)
+      else
+        errors[:base] << l(:error_file_is_locked)
+      end
       return false
     end
     begin
       # Revisions and links of a deleted file SHOULD be deleted too
       self.dmsf_file_revisions.each { |r| r.delete(commit, true) }
       if commit
+        if self.container.is_a?(Issue)
+          self.container.dmsf_file_removed(self)
+        end
         self.destroy
       else
         self.deleted = STATUS_DELETED
@@ -222,7 +227,10 @@ class DmsfFile < ActiveRecord::Base
     if User.current.admin?
       projects = Project.visible.has_module('dmsf').all
     elsif User.current.logged?
-      User.current.memberships.each {|m| projects << m.project if m.roles.detect {|r| r.allowed_to?(:file_manipulation)} && m.project.module_enabled?('dmsf')}
+      User.current.memberships.each do |m|
+        projects << m.project if m.project.module_enabled?('dmsf') &&
+          m.roles.detect { |r| r.allowed_to?(:file_manipulation) }
+      end
     end
     projects
   end
@@ -232,60 +240,45 @@ class DmsfFile < ActiveRecord::Base
       errors[:base] << l(:error_file_is_locked)
       return false
     end
-
-    # If the target project differs from the source project we must physically move the disk files
-    if self.project != project
-      self.dmsf_file_revisions.all.each do |rev|
-        if File.exist? rev.disk_file(self.project)
-          FileUtils.mv rev.disk_file(self.project), rev.disk_file(project)
-        end
-      end
-    end
-
-    self.project = project
+    # Must invalidate source parent folder cache before moving
+    RedmineDmsf::Webdav::Cache.invalidate_item(propfind_cache_key)
+    self.project_id = project.id
     self.dmsf_folder = folder
     new_revision = self.last_revision.clone
     new_revision.dmsf_file = self
     new_revision.comment = l(:comment_moved_from, :source => "#{self.project.identifier}:#{self.dmsf_path_str}")
     new_revision.custom_values = []
-
     self.last_revision.custom_values.each do |cv|
       new_revision.custom_values << CustomValue.new({:custom_field => cv.custom_field, :value => cv.value})
     end
-
+    self.set_last_revision(new_revision)
     self.save && new_revision.save
   end
 
-  def copy_to(project, folder)
-
-    # If the target project differs from the source project we must physically move the disk files
-    if self.project != project
-      self.dmsf_file_revisions.all.each do |rev|
-        if File.exist? rev.disk_file(self.project)
-          FileUtils.cp rev.disk_file(self.project), rev.disk_file(project)
-        end
-      end
-    end
-
+  def copy_to(project, folder = nil)
+    copy_to_filename(project, folder, self.name)
+  end
+  
+  def copy_to_filename(project, folder, filename)
     file = DmsfFile.new
     file.dmsf_folder = folder
-    file.project = project
-    file.name = self.name
+    file.project_id = project.id
+    file.name = filename
     file.notification = Setting.plugin_redmine_dmsf['dmsf_default_notifications'].present?
-
     if file.save && self.last_revision
       new_revision = self.last_revision.clone
       new_revision.dmsf_file = file
-      new_revision.comment = l(:comment_copied_from, :source => "#{self.project.identifier}: #{self.dmsf_path_str}")
-
+      new_revision.disk_filename = new_revision.new_storage_filename
+      if File.exist? self.last_revision.disk_file
+        FileUtils.cp self.last_revision.disk_file, new_revision.disk_file(false)
+      end
+      new_revision.comment = l(:comment_copied_from, :source => "#{project.identifier}: #{self.dmsf_path_str}")
       new_revision.custom_values = []
       self.last_revision.custom_values.each do |cv|
         new_revision.custom_values << CustomValue.new({:custom_field => cv.custom_field, :value => cv.value})
       end
-
       file.delete(true) unless new_revision.save
     end
-
     return file
   end
 
@@ -312,11 +305,9 @@ class DmsfFile < ActiveRecord::Base
 
     project_conditions = []
     project_conditions << Project.allowed_to_condition(user, :view_dmsf_files)
-    project_conditions << "#{DmsfFile.table_name}.project_id IN (#{project_ids.join(',')})" if project_ids.present?
+    project_conditions << "#{Project.table_name}.id IN (#{project_ids.join(',')})" if project_ids.present?
 
-    results = []
-
-    scope = self.visible.joins(:project, :dmsf_file_revisions)
+    scope = self.visible.joins('JOIN dmsf_file_revisions ON dmsf_file_revisions.dmsf_file_id = dmsf_files.id').joins(:project)
     scope = scope.limit(options[:limit]) unless options[:limit].blank?
     scope = scope.where(limit_options) unless limit_options.blank?
     scope = scope.where(project_conditions.join(' AND '))
@@ -330,8 +321,8 @@ class DmsfFile < ActiveRecord::Base
           Setting.plugin_redmine_dmsf['dmsf_index_database'].strip, lang)
         database = Xapian::Database.new(databasepath)
       rescue Exception => e
-        Rails.logger.warn "REDMAIN_XAPIAN ERROR: Xapian database is not properly set, initiated or it's corrupted."
-        Rails.logger.warn e.message
+        Rails.logger.error "REDMINE_XAPIAN ERROR: Xapian database is not properly set, initiated or it's corrupted."
+        Rails.logger.error e.message
       end
 
       if database
@@ -379,7 +370,7 @@ class DmsfFile < ActiveRecord::Base
 
               if dmsf_file
                 if user.allowed_to?(:view_dmsf_files, dmsf_file.project) &&
-                    (project_ids.blank? || (project_ids.include?(dmsf_file.project.id)))
+                    (project_ids.blank? || (project_ids.include?(dmsf_file.project_id)))
                     Redmine::Search.cache_store.write("DmsfFile-#{dmsf_file.id}",
                       dochash['sample'].force_encoding('UTF-8')) if dochash['sample']
                   break if(!options[:limit].blank? && results.count >= options[:limit])
@@ -401,19 +392,39 @@ class DmsfFile < ActiveRecord::Base
   end
 
   def display_name
-    if self.name.length > 50
-      return "#{self.name[0, 25]}...#{self.name[-25, 25]}"
+    member = Member.where(:user_id => User.current.id, :project_id => self.project_id).first
+    if member && !member.title_format.nil? && !member.title_format.empty?
+      title_format = member.title_format
+    else
+      title_format = Setting.plugin_redmine_dmsf['dmsf_global_title_format']
     end
-    self.name
+    fname = formatted_name(title_format)
+    if fname.length > 50
+      return "#{fname[0, 25]}...#{fname[-25, 25]}"
+    end
+    fname
+  end
+
+  def text?
+    self.last_revision && Redmine::MimeType.is_type?('text', self.last_revision.disk_filename)
   end
 
   def image?
-    self.last_revision && !!(self.last_revision.disk_filename =~ /\.(bmp|gif|jpg|jpe|jpeg|png|svg)$/i)
+    self.last_revision && Redmine::MimeType.is_type?('image', self.last_revision.disk_filename)
+  end
+
+  def pdf?
+    self.last_revision && (Redmine::MimeType.of(self.last_revision.disk_filename) == 'application/pdf')
+  end
+
+
+  def disposition
+    (self.image? || self.pdf?) ? 'inline' : 'attachment'
   end
 
   def preview(limit)
     result = 'No preview available'
-    if (self.last_revision.disk_filename =~ /\.(txt|ini|diff|c|cpp|php|csv|rb|h|erb|html|css|py)$/i)
+    if self.text?
       begin
         f = File.new(self.last_revision.disk_file)
         f.each_line do |line|
@@ -450,6 +461,171 @@ class DmsfFile < ActiveRecord::Base
       return true if file_revision.user == user
     end
     false
+  end
+
+  def custom_value(custom_field)
+    self.last_revision.custom_field_values.each do |cv|
+      if cv.custom_field == custom_field
+        if cv.value.is_a? Array
+          return cv.value.reject{ |x| x.empty? }.join(',')
+        else
+          return cv.value
+        end
+      end
+    end
+    nil
+  end
+
+  def save(*args)
+    RedmineDmsf::Webdav::Cache.invalidate_item(propfind_cache_key)
+    super(*args)
+  end
+  
+  def save!(*args)
+    RedmineDmsf::Webdav::Cache.invalidate_item(propfind_cache_key)
+    super(*args)
+  end
+  
+  def destroy
+    RedmineDmsf::Webdav::Cache.invalidate_item(propfind_cache_key)
+    super
+  end
+
+  def destroy!
+    RedmineDmsf::Webdav::Cache.invalidate_item(propfind_cache_key)
+    super
+  end
+  
+  def propfind_cache_key
+    unless dmsf_folder_id
+      # File is in project root
+      return "PROPFIND/#{self.project_id}"
+    else
+      return "PROPFIND/#{self.project_id}/#{self.dmsf_folder_id}"
+    end
+  end
+
+  def extension
+    File.extname(self.last_revision.disk_filename).strip.downcase[1..-1] if self.last_revision
+  end
+
+  include ActionView::Helpers::NumberHelper
+  include Rails.application.routes.url_helpers
+
+  def to_csv(columns, level)
+    csv = []
+    # Project
+    csv << self.project.name if columns.include?(l(:field_project))
+    # Id
+    csv << self.id if columns.include?('id')
+    # Title
+    csv << self.title.insert(0, '  ' * level) if columns.include?('title')
+    # Extension
+    csv << self.extension if columns.include?('extension')
+    # Size
+    csv << number_to_human_size(self.last_revision.size) if columns.include?('size')
+    # Modified
+    if columns.include?('modified')
+      if self.last_revision
+        csv << format_time(self.last_revision.updated_at)
+      else
+        csv << ''
+      end
+    end
+    # Version
+    if columns.include?('version')
+      if self.last_revision
+        csv << self.last_revision.version
+      else
+        csv << ''
+      end
+    end
+    # Workflow
+    if columns.include?('workflow')
+      if self.last_revision
+        csv << self.last_revision.workflow_str(false)
+      else
+        csv << ''
+      end
+    end
+    # Author
+    if columns.include?('author')
+      if self.last_revision && self.last_revision.user
+        csv << self.last_revision.user.name
+      else
+        csv << ''
+      end
+    end
+    # Last approver
+    if columns.include?(l(:label_last_approver))
+      if self.last_revision && self.last_revision.dmsf_workflow
+        csv << self.last_revision.workflow_tooltip
+      else
+        csv << ''
+      end
+    end
+    # Url
+    if columns.include?(l(:label_document_url))
+      default_url_options[:host] = Setting.host_name
+      csv << url_for(:controller => :dmsf_files, :action => 'view', :id => self.id)
+    end
+    # Revision
+    if columns.include?(l(:label_last_revision_id))
+      if self.last_revision
+        csv << self.last_revision.id
+      else
+        csv << ''
+      end
+    end
+    # Custom fields
+    cfs = CustomField.where(:type => 'DmsfFileRevisionCustomField').order(:position)
+    cfs.each do |c|
+      csv << self.custom_value(c) if columns.include?(c.name)
+    end
+    csv
+  end
+
+  def thumbnail(options={})
+    if image?
+      size = options[:size].to_i
+      if size > 0
+        # Limit the number of thumbnails per image
+        size = (size / 50) * 50
+        # Maximum thumbnail size
+        size = 800 if size > 800
+      else
+        size = Setting.thumbnails_size.to_i
+      end
+      size = 100 unless size > 0
+      target = File.join(Attachment.thumbnails_storage_path, "#{self.id}_#{self.last_revision.digest}_#{size}.thumb")
+
+      begin
+        Redmine::Thumbnail.generate(self.last_revision.disk_file.to_s, target, size)
+      rescue => e
+        Rails.logger.error "An error occured while generating thumbnail for #{self.last_revision.disk_file} to #{target}\nException was: #{e.message}"
+        return nil
+      end
+    end
+  end
+
+  def get_locked_title
+    if self.locked_for_user?
+      if self.lock.reverse[0].user
+        return l(:title_locked_by_user, :user => self.lock.reverse[0].user)
+      else
+        return l(:notice_account_unknown_email)
+      end
+    end
+    l(:title_unlock_file)
+  end
+
+  def container
+    unless @container
+      if self.dmsf_folder && self.dmsf_folder.system
+        @container = Issue.where(:id => self.dmsf_folder.title.to_i).first
+      end
+    end
+    @container
   end
 
 end

@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -68,11 +68,11 @@ class DmsfConvertDocuments
           folder = DmsfFolder.new
 
           folder.project = project
-          attachment = document.attachments.reorder("#{Attachment.table_name}.created_on ASC").first
+          attachment = document.attachments.reorder(:created_on => :asc).first
           if attachment
             folder.user = attachment.author
           else
-            folder.user = Users.active.where(:admin => true).first
+            folder.user = User.active.where(:admin => true).first
           end
 
           folder.title = document.title
@@ -111,14 +111,14 @@ class DmsfConvertDocuments
           document.attachments.each do |attachment|
             begin
               file = DmsfFile.new
-              file.project = project
+              file.project_id = project.id
               file.dmsf_folder = folder
 
               file.name = attachment.filename
               i = 1
               suffix = ''
               while files.index{|f| f.name == (DmsfFileRevision.remove_extension(file.name) + suffix + File.extname(file.name))}
-                i+=1
+                i += 1
                 suffix = "_#{i}"
               end
 
@@ -158,8 +158,8 @@ class DmsfConvertDocuments
               revision.disk_filename = revision.new_storage_filename              
 
               unless dry
-                FileUtils.cp(attachment.diskfile, revision.disk_file)                
-                revision.size = File.size(revision.disk_file)
+                FileUtils.cp(attachment.diskfile, revision.disk_file(false))
+                revision.size = File.size(revision.disk_file(false))
               end              
 
               if dry

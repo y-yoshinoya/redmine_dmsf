@@ -2,7 +2,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -46,8 +46,8 @@ class DmsfLink < ActiveRecord::Base
     end
   end
 
-  STATUS_DELETED = 1
-  STATUS_ACTIVE = 0
+  STATUS_DELETED = 1.freeze
+  STATUS_ACTIVE = 0.freeze
 
   scope :visible, -> { where(:deleted => STATUS_ACTIVE) }
   scope :deleted, -> { where(:deleted => STATUS_DELETED) }
@@ -62,7 +62,12 @@ class DmsfLink < ActiveRecord::Base
   end
 
   def target_folder
-    DmsfFolder.find_by_id self.target_folder_id if self.target_folder_id
+    unless @target_folder
+      if self.target_folder_id
+        @target_folder = DmsfFolder.find_by_id self.target_folder_id
+      end
+    end
+    @target_folder
   end
 
   def target_file_id
@@ -70,15 +75,28 @@ class DmsfLink < ActiveRecord::Base
   end
 
   def target_file
-    DmsfFile.find_by_id self.target_file_id if self.target_file_id
+    unless @target_file
+      if self.target_file_id
+        @target_file = DmsfFile.find_by_id self.target_file_id
+      end
+    end
+    @target_file
   end
 
   def target_project
-    Project.find_by_id self.target_project_id
+    unless @target_project
+      @target_project = Project.find_by_id self.target_project_id
+    end
+    @target_project
   end
 
   def folder
-    DmsfFolder.find_by_id self.dmsf_folder_id
+    unless @folder
+      if self.dmsf_folder_id
+        @folder = DmsfFolder.find_by_id self.dmsf_folder_id
+      end
+    end
+    @folder
   end
 
   def title
@@ -98,7 +116,7 @@ class DmsfLink < ActiveRecord::Base
 
   def path
     if self.target_type == DmsfFile.model_name.to_s
-      path = self.target_file.dmsf_path.map { |element| element.is_a?(DmsfFile) ? element.name : element.title }.join('/') if self.target_file
+      path = self.target_file.dmsf_path.map { |element| element.is_a?(DmsfFile) ? element.display_name : element.title }.join('/') if self.target_file
     else
       path = self.target_folder ? self.target_folder.dmsf_path_str : ''
     end
@@ -110,20 +128,29 @@ class DmsfLink < ActiveRecord::Base
   end
 
   def copy_to(project, folder)
-    link = DmsfLink.new(
-      :target_project_id => self.target_project_id,
-      :target_id => self.target_id,
-      :target_type => self.target_type,
-      :name => self.name,
-      :external_url => self.external_url,
-      :project_id => project.id,
-      :dmsf_folder_id => folder ? folder.id : nil)
+    link = DmsfLink.new
+    link.target_project_id = self.target_project_id
+    link.target_id = self.target_id
+    link.target_type = self.target_type
+    link.name = self.name
+    link.external_url = self.external_url
+    link.project_id = project.id
+    link.dmsf_folder_id = folder ? folder.id : nil
     link.save
     link
   end
 
+  def container
+    if self.folder && self.folder.system
+      Issue.where(:id => self.folder.title.to_i).first
+    end
+  end
+
   def delete(commit = false)
     if commit
+      if self.container.is_a?(Issue)
+        self.container.dmsf_file_removed(self.target_file)
+      end
       self.destroy
     else
       self.deleted = STATUS_DELETED
@@ -148,6 +175,42 @@ class DmsfLink < ActiveRecord::Base
 
   def is_file?
     !is_folder?
+  end
+
+  def to_csv(columns, level)
+    csv = []
+    if self.target_type == 'DmsfUrl'
+      # Project
+      csv << self.project.name if columns.include?(l(:field_project))
+      # Id
+      csv << self.id if columns.include?('id')
+      # Title
+      csv << self.title.insert(0, ' ' * level) if columns.include?('title')
+      # Extension
+      csv << '' if columns.include?('extension')
+      # Size
+      csv << '' if columns.include?('size')
+      # Modified
+      csv << format_time(self.updated_at) if columns.include?('modified')
+      # Version
+      csv << '' if columns.include?('version')
+      # Workflow
+      csv << '' if columns.include?('workflow')
+      # Author
+      csv << self.user.name if columns.include?('author')
+      # Last approver
+      csv << '' if columns.include?(l(:label_last_approver))
+      # Url
+      csv << self.external_url if columns.include?(l(:label_document_url))
+      # Revision
+      csv << '' if columns.include?(l(:label_last_revision_id))
+      # Custom fields
+      cfs = CustomField.where(:type => 'DmsfFileRevisionCustomField').order(:position)
+      cfs.each do |c|
+        csv << '' if columns.include?(c.name)
+      end
+    end
+    csv
   end
 
 end

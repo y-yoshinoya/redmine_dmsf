@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2012    Daniel Munn <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -29,7 +29,7 @@ module RedmineDmsf
 
       def initialize(*args)
         webdav_setting = Setting.plugin_redmine_dmsf['dmsf_webdav']
-        raise NotFound if !webdav_setting.nil? && webdav_setting.empty?
+        raise NotFound if webdav_setting.nil? || webdav_setting.empty?
         @project = nil
         super(*args)
       end
@@ -60,7 +60,7 @@ module RedmineDmsf
         @public_path.force_encoding('utf-8')
       end
 
-      # Generate HTML for Get requests
+      # Generate HTML for Get requests, or Head requests if no_body is true
       def html_display
         @response.body = ''
         Confict unless collection?        
@@ -92,6 +92,22 @@ module RedmineDmsf
         new_path = new_path + '/' unless new_path[-1,1] == '/'
         new_path = '/' + new_path unless new_path[0,1] == '/'
         @__proxy.class.new("#{new_public}#{name}", "#{new_path}#{name}", request, response, options.merge(:user => @user))
+      end
+      
+      def child_project(p)
+        project_display_name = ProjectResource.create_project_name(p)
+        
+        new_public = public_path.dup
+        new_public = new_public + '/' unless new_public[-1,1] == '/'
+        new_public = '/' + new_public unless new_public[0,1] == '/'
+        new_public += project_display_name
+        
+        new_path = path.dup
+        new_path = new_path + '/' unless new_path[-1,1] == '/'
+        new_path = '/' + new_path unless new_path[0,1] == '/'
+        new_path += project_display_name
+        
+        @__proxy.class.new("#{new_public}", "#{new_path}", request, response, options.merge(:user => @user))
       end
 
       def parent
@@ -145,15 +161,22 @@ module RedmineDmsf
         File.dirname(path)
       end
 
-      # Return instance of Project based on path
+      # Return instance of Project based on the path
       def project
         unless @project
           pinfo = @path.split('/').drop(1)
           if pinfo.length > 0
-            begin
-              @project = Project.find(pinfo.first)
-            rescue Exception => e
-              Rails.logger.error e.message
+            if Setting.plugin_redmine_dmsf['dmsf_webdav_use_project_names']
+              if pinfo.first =~ /(\d)$/
+                @project = Project.find_by_id($1)
+                Rails.logger.warn {"WebDAV ERROR: No project found on path '#{@path}'"} unless @project
+              end
+            else
+              begin
+                @project = Project.find(pinfo.first)
+              rescue Exception => e
+                Rails.logger.warn e.message
+              end
             end
           end
         end
@@ -166,8 +189,9 @@ module RedmineDmsf
       end
 
       def path_prefix
-        public_path.gsub(/#{Regexp.escape(path)}$/, '')        
+        public_path.gsub(/#{Regexp.escape(path)}$/, '')
       end
+
     end
   end
 end

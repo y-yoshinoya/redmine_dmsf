@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,8 +21,10 @@
 
 require 'tmpdir'
 require 'digest/md5'
+require 'csv'
 
 module DmsfHelper
+  include Redmine::I18n
 
   def self.temp_dir
     Dir.tmpdir
@@ -57,10 +59,12 @@ module DmsfHelper
     extension = File.extname(filename)
     extension = extension[1, extension.length-1]
     if File.exist?("#{File.dirname(__FILE__)}/../../assets/images/filetypes/#{extension}.png")
-      "filetype-#{extension}";
+      cls = "filetype-#{extension}";
     else
-      Redmine::MimeType.css_class_of(filename)
+      cls = Redmine::MimeType.css_class_of(filename)
     end
+    cls << ' dmsf-icon-file' if cls
+    cls
   end
 
   def plugin_asset_path(plugin, asset_type, source)
@@ -68,16 +72,51 @@ module DmsfHelper
   end
 
   def json_url
-    if I18n.locale && !I18n.locale.to_s.match(/^en.*/)
-      "jquery.dataTables/#{I18n.locale.to_s.downcase}.json"
-    else
-      'jquery.dataTables/en.json'
+    if I18n.locale
+      ret = "jquery.dataTables/#{I18n.locale}.json"
+      path = "#{File.dirname(__FILE__)}/../../assets/javascripts/#{ret}"
+      return ret if File.exist?(path)
+      Rails.logger.warn "#{path} not found"
     end
+    'jquery.dataTables/en.json'
+  end
+
+  def js_url
+    if I18n.locale
+      ret = "plupload/js/i18n/#{I18n.locale}.js"
+      path = "#{File.dirname(__FILE__)}/../../assets/javascripts/#{ret}"
+      return ret if File.exist?(path)
+      Rails.logger.warn "#{path} not found"
+    end
+    'plupload/js/i18n/en.js'
+  end
+
+  def self.visible_folders(folders, project)
+    allowed = Setting.plugin_redmine_dmsf['dmsf_act_as_attachable'] &&
+      (project.dmsf_act_as_attachable == Project::ATTACHABLE_DMS_AND_ATTACHMENTS) &&
+      User.current.allowed_to?(:display_system_folders, project)
+    folders.reject{ |folder|
+      if folder.system
+        unless allowed
+          true
+        else
+          issue_id = folder.title.to_i
+          if issue_id > 0
+            issue = Issue.find_by_id issue_id
+            issue && !issue.visible?(User.current)
+          else
+            false
+          end
+        end
+      else
+        false
+      end
+    }
   end
 
   def self.all_children_sorted(parent, pos, ident)
     # Folders && files && links
-    nodes = parent.dmsf_folders.visible + parent.dmsf_links.visible + parent.dmsf_files.visible
+    nodes = visible_folders(parent.dmsf_folders.visible.to_a, parent.is_a?(Project) ? parent : parent.project) + parent.dmsf_links.visible + parent.dmsf_files.visible
     # Alphabetical and type sort
     nodes.sort! do |x, y|
       if ((x.is_a?(DmsfFolder) || (x.is_a?(DmsfLink) && x.is_folder?)) &&
@@ -91,7 +130,9 @@ module DmsfHelper
       end
     end
     # Calculate position
-    step = 1.0 / (10 ** ident)
+    ident = 0 unless ident
+    pos = (10 ** 12) unless pos
+    step = (10 ** 12) / (10 ** (ident * 3))
     tree = []
     i = 0
     nodes.each do |x|
@@ -99,10 +140,44 @@ module DmsfHelper
         i += 1
         tree << [x, pos + (step * i)]
       else
-        tree << [x, pos + step + i]
+        tree << [x, pos + (step * (i + 1))]
       end
     end
     tree
+  end
+
+  def self.dmsf_to_csv(parent, columns)
+    #Redmine::Export::CSV.generate do |csv|
+    CSV.generate(:force_quotes => true, :encoding => 'UTF-8') do |csv|
+      # Header
+      csv << columns.map { |c| c.capitalize }
+      # Lines
+      DmsfHelper.object_to_csv(csv, parent, columns)
+    end
+  end
+
+  def self.object_to_csv(csv, parent, columns, level = -1)
+    # Folder
+    if level >= 0
+      csv << parent.to_csv(columns, level)
+    end
+    # Sub-folders
+    folders = parent.dmsf_folders.visible.to_a
+    folders.concat(parent.folder_links.visible.to_a.map{ |l| l.folder })
+    folders.compact!
+    folders.sort!{ |x, y| x.title <=> y.title}
+    folders.each do |f|
+      DmsfHelper.object_to_csv(csv, f, columns, level + 1)
+    end
+    # Files
+    files = parent.dmsf_files.visible.to_a
+    files.concat(parent.file_links.visible.to_a.map{ |l| l.target_file })
+    files.concat(parent.url_links.visible.to_a)
+    files.compact!
+    files.sort!{ |x, y| x.title <=> y.title}
+    files.each do |file_or_link|
+      csv << file_or_link.to_csv(columns, level + 1)
+    end
   end
 
 end

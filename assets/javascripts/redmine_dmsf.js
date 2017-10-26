@@ -2,7 +2,7 @@
 *
 * Redmine plugin for Document Management System "Features"
 *
-* Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+* Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -138,13 +138,19 @@ function dmsfExpandRows(EL, parentRow, url) {
 
   var pos = $(parentRow).find('#dmsf_position').text();
 
-  return $.ajax({
+  $.ajax({
     url: url,
     type: 'post',
+    dataType: 'html',
     data: {
       folder_id: EL,
       row_id: parentRow.id,
       idnt: idnt,
       pos: pos}
+  }).done(function(data) {
+      eval(data);
+  })
+  .fail(function() {
+      alert('An error in rows expanding');
   });
 }

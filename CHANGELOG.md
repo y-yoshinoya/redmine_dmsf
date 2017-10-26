@@ -1,6 +1,118 @@
 Changelog for Redmine DMSF
 ==========================
 
+1.6.0 *2017-09-12*
+------------------
+
+    Folder permissions    
+    Documents attachable to issues
+    Hungarian localization
+    Full-text search in *.eml and *.msg
+
+IMPORTANT
+
+1. Files in the filesystem are re-organized by a new system based on dates. So, documents are not stored in folders named 
+    by the project's identifier but by the data of uploading, e.g. 2017/09. It's the same system used by Redmine for 
+    attachments.
+2. DMS storage directory plugin option is related to the rails root directory.
+3. The plugin is independent of the gem xapian-full-alaveteli which has been replaced with ruby-xapian package. Therefore
+    is recommended to uninstall xapian-full-alaveteli gem and install ruby-xapian package in order the full-text search
+    is working. 
+    
+* Bug: #758 - Error in template when retrieving details of a file in a subfolder
+* New: #755 - Ability to retrieve the MD5 value of a Document type 
+* Bug: #749 - REST API - List of documents in folder fails when using folder_title
+* Bug: #747 - Background icon repeating in admin panel (Redmine 3.4.2)
+* Bug: #746 - Thumbnail macro: size paramter not respected
+* Bug: #744 - Full stops within filename lead to false extensions
+* New: #742 - WebDAV PROPSTATS and PROPFIND caching change
+* Bug: #738 - Upload failure
+* Bug: #734 - DMSF uploader seems to override built in uploader
+* New: #733 - Make the storage path Rails.root related
+* Bug: #732 - Buggy tree view
+* Bug: #731 - Add users for new step in Worflow Dialogue
+* Bug: #730 - Workflow "New Step" dialog not appearing
+* Bug: #728 - Internal error 500 when uploading document via Edit issue
+* New: #727 - Ability to disable document upload in issues
+* Bug: #725 - Can't uninstall redmine dmsf in Bitnami
+* New: #717 - Enhacement: Xapian parse eml and msg files in same way as word, excel...
+* Bug: #714 - The full text search does not work
+* New: #713 - Hungarian localisation
+* New: #712 - Notifications ON/OFF are confusing
+* Bug: #710 - Can't delete locked documents from the trash
+* Bug: #701 - How tagging with multiple values works?
+* Bug: #700 - 'Save as' from Excel does not work when using project names
+* New: #699 - Speed up the main view
+* New: #697 - Email notifications from WebDAV interface
+* Bug: #694 - redmine:dmsf_convert_documents
+* Bug: #693 - redmine:dmsf_convert_documents
+* Bug: #692 - Error migrate plugin v1.5.9
+* New: #691 - The last approver in the CSV export
+* Bug: #685 - Problem deleting plugin
+* Bug: #683 - Approval reminder problem
+* New: #667 - A better navigation in found results
+* New: #651 - Incomplete copy of a file to another project
+* Bug: #623 - Option "Navigate folders in a tree" seems not to be saved 
+* New: #543 - Feature Request: Document Location - Folder Structure
+* New: #170 - Document and Folder Access Control. This issue may be duplicated as I saw it on google code some time ago.
+* New: #48  - Linking Issues and DMSF Documents
+
+1.5.9 *2016-03-01*
+------------------
+
+    WebDAV 
+        Documents editing in MS Office 
+        Support for rsync and cp commands 
+        Disable verioning for certain file names pattern by PUT request
+        Ignoring certain file names pattern by PUT request
+        Caching of PROPSTATS and PROPFIND requests
+    REST API
+        Update folders
+        Finding folders by their titles
+    Approval workflow
+        Editing of approval workflow steps
+        Approval workflow step name
+    DMSF
+        Document export   
+        Public URLs option in email entries
+        Global title format for downloading
+        New columns in the main DMSF view; columns are configurable from the plugin settings
+
+* New: #676 - An option to prevent inheritance of CF
+* New: #675 - Keep documents locked after the approval workflow is finished as an option
+* Bug: #671 - Webdav: MOVE returns incorrect response
+* Bug: #663 - Locked documnts on My page
+* Bug: #662 - Broken paging on the Add approver form
+* New: #655 - ERROR: Couldn't find Project with identifier=desktop.ini
+* New: #654 - Non-versioned files should not go to trash bin when deleted
+* Bug: #652 - Missing date picker when creating new file
+* Bug: #651 - Incomplete copy of a file to another project
+* New: #648 - Lock duration
+* New: #641 - Documents export
+* New: #635 - Edit approval workflow steps
+* Bug: #632 - database migration error (from ver 0.9.1 to ver 1.5.8)
+* New: #630 - Disable versioning for certain files/file patterns
+* New: #629 - Approval workflow step name
+* New: #626 - Public URLs in email entries
+* New: #614 - WebDAV caching
+* Bug: #606 - DmsfFile.move_to does not update last_revision
+* Bug: #605 - Wrong file size detection for non English language
+* Bug: #603 - Send documents by email, from address is emission email address instead of user mail
+* Bug: #598 - WebDAV: PROPFIND to "/" and "/dmsf" throws FATAL error
+* Bug: #593 - Modern upload file type doesn't work
+* Bug: #592 - reset_column_information is missing in DB migration
+* Bug: #591 - rsync doesn't work for WebDAV mounted folder
+* Bug: #587 - Working with MS Office documents directly in mounted WebDAV share 
+* New: #584 - A lot of warnings in WebDAV unit tests
+* Bug: #582 - FATAL -- : ActionController::RoutingError (No route matches [GET] "/plugin_assets/redmine_dmsf/javascripts/jquery.dataTables/zh.json")
+* Bug: #581 - Webdav always shows the create date
+* Bug: #580 - Revision deleting
+* Bug: #579 - Wrong file size
+* New: #555 - Documents ID easy access
+* New: #551 - Default action for files viewing
+* New: #547 - Setting Title format should be global setting, but released as local setting
+* New: #499 - Add column "type/extension" in folder content view    
+
 1.5.8 *2016-10-21*
 ------------------
 

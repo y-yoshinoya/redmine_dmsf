@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2012    Daniel Munn <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,8 +22,13 @@
 module RedmineDmsf
   module Webdav
     class ProjectResource < BaseResource
+
+      def initialize(*args)
+        super(*args)
+        @children = nil
+      end
       
-      def children        
+      def children
         unless @children          
           @children = []
           if project
@@ -44,6 +49,12 @@ module RedmineDmsf
         User.current.admin? || User.current.allowed_to?(:view_dmsf_folders, project)
       end
 
+      def really_exist?
+        return false if project.nil?
+        return false unless project.module_enabled?('dmsf')    
+        true
+      end
+
       def collection?
         exist?
       end
@@ -61,7 +72,7 @@ module RedmineDmsf
       end
 
       def name
-        project.identifier unless project.nil?
+        ProjectResource.create_project_name(project)
       end
 
       def long_name
@@ -89,10 +100,36 @@ module RedmineDmsf
       def folder
         nil
       end
+
       def file
         nil
       end
+      
+      # Available properties
+      def properties
+        %w(creationdate displayname getlastmodified getetag resourcetype getcontenttype getcontentlength supportedlock lockdiscovery).collect do |prop|
+          {:name => prop, :ns_href => 'DAV:'}
+        end
+      end
 
+      def project_id
+	      self.project.id if self.project
+      end
+
+      # Characters that MATCH this regex will be replaced with dots, no more than one dot in a row.
+      INVALID_CHARACTERS = /[\/\\\?":<>#%\*\[\]]/.freeze # = / \ ? " : < > # % * [ ]
+
+      def self.create_project_name(p)
+        use_project_names = Setting.plugin_redmine_dmsf['dmsf_webdav_use_project_names']
+        if use_project_names
+          # 1. Invalid characters are replaced with a dot.
+          # 2. Two or more dots in a row are replaced with a single dot.
+          # (3. Windows WebClient does not like a dot at the end, but since the project id tag is appended this is not a problem.)
+          "#{p.name.gsub(INVALID_CHARACTERS, '.').gsub(/\.{2,}/, '.')} #{p.id}" if p
+        else
+          p.identifier if p
+        end
+      end
     end
   end
 end

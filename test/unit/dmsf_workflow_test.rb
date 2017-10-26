@@ -2,7 +2,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -188,12 +188,6 @@ class DmsfWorkflowTest < RedmineDmsf::Test::UnitTest
     assignments = @wf1.next_assignments(2)
     assert_equal assignments.size, 1
     assert_equal assignments[0].user_id, 2    
-  end 
-  
-  def test_assignments_to_users_str    
-    assignments = @wf1.next_assignments(2)
-    str = DmsfWorkflow.assignments_to_users_str(assignments)
-    assert_equal str, 'John Smith', str
   end
   
   def test_assign
@@ -233,6 +227,12 @@ class DmsfWorkflowTest < RedmineDmsf::Test::UnitTest
   
   def test_scope_status    
     assert_equal 1, DmsfWorkflow.status(DmsfWorkflow::STATUS_LOCKED).count
+  end
+
+  def test_copy_to
+    wf = @wf1.copy_to(@project5, "#{@wf1.name}_copy")
+    assert_equal wf.project_id, @project5.id
+    assert_equal wf.name, "#{@wf1.name}_copy"
   end
   
 end

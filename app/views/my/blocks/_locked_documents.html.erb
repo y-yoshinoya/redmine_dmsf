@@ -3,7 +3,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,12 +22,14 @@
 
 <% folders = [] %>
 <% files = [] %>
-<% folders = DmsfFolder.joins(
+<% folders = DmsfFolder.visible.joins(
   'JOIN dmsf_locks ON dmsf_folders.id = dmsf_locks.entity_id').where(
-  'dmsf_locks.entity_type' => 1, 'dmsf_locks.user_id' => @user.id).all if @user %>
-<% files = DmsfFile.joins(
+  ['dmsf_locks.entity_type = ? AND dmsf_locks.user_id = ? AND (dmsf_locks.expires_at IS NULL OR dmsf_locks.expires_at > ?)',
+   1, @user.id, Time.now]).all if @user %>
+<% files = DmsfFile.visible.joins(
   'JOIN dmsf_locks ON dmsf_files.id = dmsf_locks.entity_id').where(
-  'dmsf_locks.entity_type' => 0, 'dmsf_locks.user_id' => @user.id).all if @user %>
+  ['dmsf_locks.entity_type = ? AND dmsf_locks.user_id = ? AND (dmsf_locks.expires_at IS NULL OR dmsf_locks.expires_at > ?)',
+   0, @user.id, Time.now]).all if @user %>
 <h3><%= l(:locked_documents)%> (<%= folders.count %>/<%=  files.count %>)</h3>
 <% if folders.any? || files.any?%>
   <%= form_tag({}) do %>
@@ -41,7 +43,7 @@
       </thead>
       <tbody>
         <% folders.each do |folder| %>
-          <tr id="folder-<%= folder.id %>" class="<%= cycle('odd', 'even') %>">
+          <tr id="folder-<%= folder.id %>">
             <td class="project">
               <%= link_to_project(folder.project) %>
             </td>
@@ -61,9 +63,9 @@
            </tr>
         <% end %>
         <% files.each do |file| %>
-          <tr id="file-<%= file.id %>" class="<%= cycle('odd', 'even') %>">
+          <tr id="file-<%= file.id %>">
             <td class="project">
-              <%= link_to_project(file.project) %>
+              <%= link_to_project(file.project) if file.project %>
             </td>
             <td class="title">
               <%= link_to(h(file.title),
@@ -75,7 +77,8 @@
                  <%= link_to(h(file.dmsf_folder.title),
                     {:controller => 'dmsf', :action => 'show', :id => file.project, :folder_id => file.dmsf_folder}) %>
                <% else %>
-                  <%= link_to(l(:link_documents), {:controller => 'dmsf', :action => 'show', :id=> file.project }) %>
+                  <%= link_to_if(file.project, l(:link_documents), {:controller => 'dmsf', :action => 'show',
+                                                                    :id=> file.project }) %>
                <% end %>
              </td>
            </tr>

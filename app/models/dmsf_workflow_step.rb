@@ -2,7 +2,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,11 +26,16 @@ class DmsfWorkflowStep < ActiveRecord::Base
   validates :user_id, :presence => true
   validates :operator, :presence => true
   validates_uniqueness_of :user_id, :scope => [:dmsf_workflow_id, :step]
+  validates_length_of :name, :maximum => 30
 
-  OPERATOR_OR  = 0
-  OPERATOR_AND = 1
+  OPERATOR_OR  = 0.freeze
+  OPERATOR_AND = 1.freeze
 
   def soperator
+    DmsfWorkflowStep.soperator(self.operator)
+  end
+
+  def self.soperator(operator)
     operator == 1 ? l(:dmsf_and) : l(:dmsf_or)
   end
 

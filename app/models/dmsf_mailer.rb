@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -51,17 +51,20 @@ class DmsfMailer < Mailer
   end
 
   def send_documents(project, user, email_params)
-    zipped_content_data = open(email_params[:zipped_content], 'rb') { |io| io.read }
     redmine_headers 'Project' => project.identifier if project
     @body = email_params[:body]
-    @links_only = email_params[:links_only]
+    @links_only = email_params[:links_only] == '1'
+    @public_urls = email_params[:public_urls] == '1'
+    @expired_at = email_params[:expired_at]
     @folders = email_params[:folders]
     @files = email_params[:files]
-    unless @links_only == '1'
+
+    unless @links_only
+      zipped_content_data = open(email_params[:zipped_content], 'rb') { |io| io.read }
       attachments['Documents.zip'] = { :content_type => 'application/zip', :content => zipped_content_data }
     end
     mail :to => email_params[:to], :cc => email_params[:cc],
-      :subject => email_params[:subject], :from => user.mail
+      :subject => email_params[:subject], 'From' => email_params[:from]
   end
 
   def workflow_notification(user, workflow, revision, subject_id, text1_id, text2_id, notice = nil)
@@ -84,6 +87,7 @@ class DmsfMailer < Mailer
   end
 
   def self.get_notify_users(project, files = [])
+    return [] unless project.active?
     if files.present?
       notify_files = files.select { |file| file.notify? }
       return [] if notify_files.empty?
@@ -99,15 +103,15 @@ class DmsfMailer < Mailer
             true
           when 'selected'
             notify_member.mail_notification?
-            when 'only_my_events'
-              author = false
-              files.each do |file|
-                if file.involved?(notify_user)
-                  author = true
-                  break
-                end
+          when 'only_my_events'
+            author = false
+            files.each do |file|
+              if file.involved?(notify_user)
+                author = true
+                break
               end
-              author
+            end
+            author
           when 'only_owner', 'only_assigned'
             author = false
             files.each do |file|

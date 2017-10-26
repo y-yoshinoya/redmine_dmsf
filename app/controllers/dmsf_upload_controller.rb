@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,17 +24,24 @@ class DmsfUploadController < ApplicationController
 
   menu_item :dmsf
 
-  before_filter :find_project
-  before_filter :authorize
-  before_filter :find_folder, :except => [:upload_file, :upload, :commit]
+  before_action :find_project, :except => [:upload, :delete_dmsf_attachment, :delete_dmsf_link_attachment]
+  before_action :authorize, :except => [:upload, :delete_dmsf_attachment, :delete_dmsf_link_attachment]
+  before_action :authorize_global, :only => [:upload, :delete_dmsf_attachment, :delete_dmsf_link_attachment]
+  before_action :find_folder, :except => [:upload_file, :upload, :commit, :delete_dmsf_attachment, :delete_dmsf_link_attachment]
+  before_action :permissions, :except => [:upload_file, :upload, :commit, :delete_dmsf_attachment, :delete_dmsf_link_attachment]
 
   helper :all
   helper :dmsf_workflows
 
   accept_api_auth :upload, :commit
 
+  def permissions
+    render_403 unless DmsfFolder.permissions?(@folder)
+    true
+  end
+
   def upload_files
-    uploaded_files = params[:attachments]
+    uploaded_files = params[:dmsf_attachments]
     @uploads = []
     if uploaded_files && uploaded_files.is_a?(Hash)
       # standard file input uploads
@@ -61,36 +68,23 @@ class DmsfUploadController < ApplicationController
       return
     end
     @disk_filename = DmsfHelper.temp_filename(@tempfile.original_filename)
-    target = "#{DmsfHelper.temp_dir}/#{@disk_filename}"
-    begin
-      FileUtils.cp @tempfile.path, target
-      FileUtils.chmod 'u=wr,g=r', target
-    rescue Exception => e
-      Rails.logger.error e.message
-    end
-    if File.size(target) <= 0
-      begin
-        File.delete target
-      rescue Exception => e
-        Rails.logger.error e.message
+    @tempfile_path = "#{DmsfHelper.temp_dir}/#{@disk_filename}"
+    File.open(@tempfile_path, 'wb') do |f|
+      if params[:file].respond_to?(:read)
+        while (buffer = @tempfile.read(8192))
+          f.write(buffer)
+        end
+      else
+        f.write(@tempfile)
       end
-      render :layout => nil, :json => { :jsonrpc => '2.0',
-        :error => {
-          :code => 103,
-          :message => l(:header_minimum_filesize),
-          :details => l(:error_minimum_filesize,
-          :file => @tempfile.original_filename.to_s)
-        }
-      }
-    else
-      render :layout => false
     end
+    render :layout => false
   end
 
-  # REST API document upload
+  # REST API and Redmine attachment form
   def upload
     unless request.content_type == 'application/octet-stream'
-      render :nothing => true, :status => 406
+      head 406
       return
     end
 
@@ -118,6 +112,7 @@ class DmsfUploadController < ApplicationController
 
   # REST API file commit
   def commit
+    @files = []
     attachments = params[:attachments]
     if attachments && attachments.is_a?(Hash)
       @folder = DmsfFolder.visible.find_by_id attachments[:folder_id].to_i if attachments[:folder_id].present?
@@ -125,138 +120,38 @@ class DmsfUploadController < ApplicationController
       uploaded_files = attachments.select { |key, value| key == 'uploaded_file'}
       uploaded_files.each_value do |uploaded_file|
         upload = DmsfUpload.create_from_uploaded_attachment(@project, @folder, uploaded_file)
-        uploaded_file[:disk_filename] = upload.disk_filename
+        if upload
+          uploaded_file[:disk_filename] = upload.disk_filename
+          uploaded_file[:tempfile_path] = upload.tempfile_path
+        end
       end
+      commit_files_internal uploaded_files
     end
-    commit_files_internal uploaded_files
+  end
+
+  def delete_dmsf_attachment
+    attachment = Attachment.find(params[:id])
+    attachment.destroy
+  rescue ActiveRecord::RecordNotFound
+    render_404
+  end
+
+  def delete_dmsf_link_attachment
+    link = DmsfLink.find(params[:id])
+    link.destroy
+  rescue ActiveRecord::RecordNotFound
+    render_404
   end
 
   private
 
   def commit_files_internal(commited_files)
-    if commited_files && commited_files.is_a?(Hash)
-      @files = []
-      failed_uploads = []
-      commited_files.each_value do |commited_file|
-        name = commited_file[:name]
-
-        new_revision = DmsfFileRevision.new
-        file = DmsfFile.visible.find_file_by_name(@project, @folder, name)
-        unless file
-          link = DmsfLink.find_link_by_file_name(@project, @folder, name)
-          file = link.target_file if link
-        end
-
-        unless file
-          file = DmsfFile.new
-          file.project = @project
-          file.name = name
-          file.dmsf_folder = @folder
-          file.notification = Setting.plugin_redmine_dmsf[:dmsf_default_notifications].present?
-          new_revision.minor_version = 0
-          new_revision.major_version = 0
-        else
-          if file.last_revision
-            last_revision = file.last_revision
-            new_revision.source_revision = last_revision
-            new_revision.major_version = last_revision.major_version
-            new_revision.minor_version = last_revision.minor_version
-          else
-            new_revision.minor_version = 0
-            new_revision.major_version = 0
-          end
-        end
-
-        if file.locked_for_user?
-          failed_uploads.push(commited_file)
-          next
-        end
-
-        commited_disk_filepath = "#{DmsfHelper.temp_dir}/#{commited_file[:disk_filename].gsub(/[\/\\]/,'')}"
-
-        new_revision.dmsf_file = file
-        new_revision.user = User.current
-        new_revision.name = name
-        new_revision.title = commited_file[:title]
-        new_revision.description = commited_file[:description]
-        new_revision.comment = commited_file[:comment]
-        version = commited_file[:version].to_i
-        if version == 3
-          new_revision.major_version = commited_file[:custom_version_major].to_i
-          new_revision.minor_version = commited_file[:custom_version_minor].to_i
-        else
-          new_revision.increase_version(version)
-        end
-        new_revision.mime_type = Redmine::MimeType.of(new_revision.name)
-        new_revision.size = File.size(commited_disk_filepath)
-        new_revision.digest = DmsfFileRevision.create_digest commited_disk_filepath
-
-        # Need to save file first to generate id for it in case of creation.
-        # File id is needed to properly generate revision disk filename
-        if commited_file[:dmsf_file_revision].present?
-          commited_file[:dmsf_file_revision][:custom_field_values].each_with_index do |v, i|
-            new_revision.custom_field_values[i].value = v[1]
-          end
-        end
-
-        if new_revision.valid? && file.save
-          new_revision.disk_filename = new_revision.new_storage_filename
-        else
-          failed_uploads.push(commited_file)
-          next
-        end
-
-        if new_revision.save
-          new_revision.assign_workflow(commited_file[:dmsf_workflow_id])
-          begin
-            FileUtils.mv(commited_disk_filepath, new_revision.disk_file)
-            file.set_last_revision new_revision
-            @files.push(file)
-          rescue Exception => e
-            Rails.logger.error e.message
-            flash[:error] = e.message
-            failed_uploads.push(file)
-          end
-        else
-          failed_uploads.push(commited_file)
-        end
-      end
-      unless @files.empty?
-        @files.each { |file| log_activity(file, 'uploaded') if file }
-        if (@folder && @folder.notification?) || (!@folder && @project.dmsf_notification?)
-          begin
-            recipients = DmsfMailer.get_notify_users(@project, @files)
-            recipients.each do |u|
-              DmsfMailer.files_updated(u, @project, @files).deliver
-            end
-            if Setting.plugin_redmine_dmsf[:dmsf_display_notified_recipients] == '1'
-              unless recipients.empty?
-                to = recipients.collect{ |r| r.name }.first(DMSF_MAX_NOTIFICATION_RECEIVERS_INFO).join(', ')
-                to << ((recipients.count > DMSF_MAX_NOTIFICATION_RECEIVERS_INFO) ? ',...' : '.')
-                flash[:warning] = l(:warning_email_notifications, :to => to)
-              end
-            end
-          rescue Exception => e
-            Rails.logger.error "Could not send email notifications: #{e.message}"
-          end
-        end
-      end
-      unless failed_uploads.empty?
-        flash[:warning] = l(:warning_some_files_were_not_commited, :files => failed_uploads.map{|u| u['name']}.join(', '))
-      end
-    end
+    @files, failed_uploads = DmsfUploadHelper.commit_files_internal(commited_files, @project, @folder, self)
     respond_to do |format|
       format.js
-      format.api  {
-          render_validation_errors(failed_uploads) unless failed_uploads.empty?
-      }
+      format.api  { render_validation_errors(failed_uploads) unless failed_uploads.empty? }
       format.html { redirect_to dmsf_folder_path(:id => @project, :folder_id => @folder) }
     end
-
-  end
-
-  def log_activity(file, action)
-    Rails.logger.info "#{Time.now.strftime('%Y-%m-%d %H:%M:%S')} #{User.current.login}@#{request.remote_ip}/#{request.env['HTTP_X_FORWARDED_FOR']}: #{action} dmsf://#{file.project.identifier}/#{file.id}/#{file.last_revision.id}"
   end
 
   def find_folder

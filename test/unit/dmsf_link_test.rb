@@ -2,7 +2,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@lbcfree.net>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@lbcfree.net>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -235,6 +235,15 @@ class DmsfLinksTest < RedmineDmsf::Test::UnitTest
     assert @folder_link.delete(true), 
       @folder_link.errors.full_messages.to_sentence
     assert_nil DmsfLink.find_by_id @folder_link.id
+  end
+
+  def test_to_csv
+    columns = ['id', 'title']
+    csv = @file_link.to_csv(columns, 0)
+    assert_equal 0, csv.size
+    @file_link.target_type = 'DmsfUrl'
+    csv = @file_link.to_csv(columns, 0)
+    assert_equal 2, csv.size
   end
   
 end

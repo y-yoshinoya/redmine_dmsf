@@ -5,7 +5,7 @@
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
 # Copyright (C) 2012    Daniel Munn <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,15 +27,16 @@
 <%= render(:partial => 'path', 
   :locals => {:folder => @folder, :filename => nil, :title => l(:heading_send_documents_by_email)}) %>
 
-<%= form_tag({ :action => 'entries_email', :id => @project, :folder_id => @folder },
+<%= form_tag(email_entries_path(:id => @project, :folder_id => @folder),
   { :method => :post }) do %>
   <%= hidden_field_tag('email[zipped_content]', @email_params[:zipped_content]) %>
   <%= hidden_field_tag('email[folders]', @email_params[:folders].to_json) %>
   <%= hidden_field_tag('email[files]', @email_params[:files].to_json) %>
+  <%= hidden_field_tag('email[from]', @email_params[:from]) %>
   <div class="box tabular">
     <p>
       <%= label_tag('', l(:label_email_from)) %>      
-      <%= text_field_tag('email[from]', h(Setting.mail_from), :style => 'width: 90%;', :disabled => true) %>
+      <%= text_field_tag('email[from_disabled]', @email_params[:from], :style => 'width: 90%;', :disabled => true) %>
     </p>
     <p>
       <%= label_tag('email[to]', l(:label_email_to)) %>
@@ -54,7 +55,8 @@
       <span>
         <%= link_to 'Documents.zip', download_email_entries_path(:id => @project, :folder_id => @folder, :path => @email_params[:zipped_content]) %>       
         <%= l(:label_or) %>
-        <%= check_box_tag('email[links_only]') %> <%= l(:label_links_only) %>      
+        <%= check_box_tag('email[links_only]', 1, false, :onchange => "$('#public_url').toggle()") %> <%= l(:label_links_only) %>
+        <%= render(:partial => 'dmsf_public_urls/new') %>
       </span>
     </p>
     <p>

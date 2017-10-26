@@ -2,7 +2,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,6 +21,7 @@
 class DmsfWorkflowStepAction < ActiveRecord::Base
 
   belongs_to :dmsf_workflow_step_assignment
+  belongs_to :author, :class_name => 'User', :foreign_key => 'author_id'
 
   validates :dmsf_workflow_step_assignment_id, :presence => true
   validates :action, :presence => true

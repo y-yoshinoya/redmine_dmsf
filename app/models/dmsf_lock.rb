@@ -4,7 +4,7 @@
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
 # Copyright (C) 2012    Daniel Munn  <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontorn.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontorn.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -46,18 +46,13 @@ class DmsfLock < ActiveRecord::Base
   end
 
   def expired?
-    return false if expires_at.nil?
-    return expires_at <= Time.now
+    return expires_at && (expires_at <= Time.now)
   end
 
   def generate_uuid
     self.uuid = UUIDTools::UUID.random_create.to_s
   end
-
-  def self.delete_expired
-    self.delete_all ["#{DmsfLock.table_name}.expires_at IS NOT NULL && #{DmsfLock.table_name}.expires_at < ?", Time.now]
-  end
-
+  
   # Let's allow our UUID to be searchable
   def self.find(*args)
     if args.first && args.first.is_a?(String) && !args.first.match(/^\d*$/)

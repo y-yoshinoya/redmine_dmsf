@@ -2,7 +2,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-15 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@ class TrashBin < ActiveRecord::Migration
     # DMSF - project's root folder notification
     add_column :dmsf_folders, :deleted, :boolean, :default => false, :null => false
     add_column :dmsf_folders, :deleted_by_user_id, :integer
-    
+    DmsfFolder.reset_column_information
     DmsfFolder.update_all(:deleted => false)
   end
   

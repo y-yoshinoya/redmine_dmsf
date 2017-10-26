@@ -2,7 +2,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,6 +21,7 @@
 class ApprovalWorkflowStatus < ActiveRecord::Migration
   def self.up
     add_column :dmsf_workflows, :status, :integer, :null => false, :default => DmsfWorkflow::STATUS_ACTIVE
+    DmsfWorkflow.reset_column_information
     DmsfWorkflow.all.each {|wf| wf.update_attribute(:status, DmsfWorkflow::STATUS_ACTIVE)}
   end
 

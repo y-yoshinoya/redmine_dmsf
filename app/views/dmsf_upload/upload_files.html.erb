@@ -5,7 +5,7 @@
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
 # Copyright (C) 2012    Daniel Munn  <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -41,7 +41,9 @@
     <% else %>
       <%= render(:partial => 'upload_file', :locals => {:upload => upload, :i => i}) %>
     <% end %>
-    <% i += 1 %>
   <% end %>
-  <%= submit_tag l(:submit_commit) %>
+  <%#= submit_tag l(:submit_commit) %>
+  <div class="form-actions">
+    <%= submit_tag l(:submit_commit), :class => 'button-positive' %>
+  </div>
 <% end %>

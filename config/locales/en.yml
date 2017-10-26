@@ -4,7 +4,7 @@
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
 # Copyright (C) 2012    Daniel Munn <dan.munn@munnster.co.uk>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,7 +21,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 en:
-  dmsf: DMSF
+  dmsf: DMS # Custom fields tab title
   label_dmsf_file_plural: Documents
   label_dmsf_file_revision_plural: Document revisions
   label_dmsf_file_revision_access_plural: Document accesses
@@ -84,7 +84,7 @@ en:
   title_lock_file: Lock to prevent changes for other members
   title_download_checked: Download checked in Zip archive
   title_send_checked_by_email: Send checked by email
-  link_user_preferences: Your DMSF project preferences
+  link_user_preferences: Your DMS project preferences
   heading_send_documents_by_email: Send documents by email
   label_email_from: From
   label_email_to: To
@@ -128,7 +128,7 @@ en:
   note_maximum_number_of_files_downloaded: Limits maximum number of files downloaded in zip or sent via email. 0 means unlimited.
   label_file_storage_directory: File storage directory
   label_index_database: Index database
-  label_stemming_language: Stemming Language
+  label_stemming_language: Stemming language
   note_possible_values: Possible values
   note_pass_none_to_disable_stemming: "pass 'none' to disable stemming"
   label_stem_strategy: Stem strategy
@@ -154,6 +154,7 @@ en:
   permission_force_file_unlock: Force file unlock
   permission_manage_workflows: Manage workflows
   permission_file_delete: Delete documents
+  permission_display_system_folders: Display system folders
   label_file: File
   field_folder: Folder
   error_create_cycle_in_folder_dependency: create cycle in folder dependency
@@ -173,7 +174,7 @@ en:
   error_file_can_not_be_created: "File can't be created in storage directory"
   error_wrong_zip_encoding: Wrong Zip encoding
   warning_xapian_not_available: Xapian not available
-  menu_dmsf: DMSF
+  menu_dmsf: DMS  # Project tab title
   label_physical_file_delete: Physical file delete
   user_is_not_project_member: You are not a member of the project
   heading_access_downloads_emails: Downloads/Emails
@@ -182,7 +183,7 @@ en:
   label_dmsf_updated: Updated
   label_dmsf_downloaded: Downloaded
   title_total_size_of_all_files: Total size of all files under this folder
-  project_module_dmsf: DMSF
+  project_module_dmsf: DMS  # Project module name
   warning_no_project_to_copy_file_to: No project to copy file to
   comment_copied_from: "Copied from %{source}"
   notice_file_copied: File copied
@@ -237,7 +238,6 @@ en:
   label_dmsf_workflow_step_plural: Steps
   label_dmsf_workflow_approval: Approval
   label_dmsf_workflow_approval_plural: Approvals
-  label_dmsf: DMSF
   label_dmsf_wokflow_action_approve: Approve
   label_dmsf_wokflow_action_reject: Reject
   label_dmsf_wokflow_action_delegate: Delegate to
@@ -283,14 +283,14 @@ en:
   title_create_link: Create a symbolic link
   label_link_from: Link from
   label_link_to: Link to
-  label_notifications_on: Notifications on
-  label_notifications_off: Notifications off
+  label_notifications_on: Turn on notifications
+  label_notifications_off: Turn off notifications
   field_target_file: Source file
   title_download_entries: Download entries
   label_external: External
 
   label_link_name: Link name
-  label_link_external_url: URL
+  field_external_url: URL
   label_target_folder: Target folder
   label_source_folder: Source folder
   label_target_project: Target project
@@ -333,3 +333,39 @@ en:
   label_drag_drop: Modern
 
   error_maximum_upload_filecount: "No more than %{filecount} file(s) can be uploaded."
+
+  label_public_urls: Public URLs valid to
+
+  label_webdav: WebDAV
+  label_full_text: Full-text search
+  link_extension: Ext
+
+  label_memcached_servers: Memcached server address
+  text_memcached_servers: Only a single server is supported, if empty then caching is disabled. After changing this, the application must be restarted!
+
+  label_webdav_ignore: Ignored files patterns
+  note_webdav_ignore: A regular expresion with filenames to ignore by PUT requests.
+
+  label_document_url: Url
+  label_last_revision_id: Revision
+  
+  label_webdav_disable_versioning: No versioning files patterns
+  note_webdav_disable_versioning: A regular expression that disables versioning for matching files. The default pattern matches temporary files created by MsOffice.
+
+  label_dmsf_keep_documents_locked: Keep documents locked
+  note_dmsf_keep_documents_locked: Documents will be kept locked when approved
+  note_global: (global)
+  field_dmsf_not_inheritable: Not inheritable
+  
+  label_webdav_use_project_names: Use project name for project folder
+  note_webdav_use_project_names: Use project names instead of project identifier for project folders.
+
+  label_last_approver: Last approver
+
+  label_act_as_attachable: Act as attachable
+  note_dmsf_act_as_attachable: Allows to attach documents to objects e.g. issues.
+
+  label_user_search_add: Search for user to add
+
+  label_dmsf_attachments: DMS Attachments
+  label_basic_attachments: Basic Attachments

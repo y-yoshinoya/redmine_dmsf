@@ -2,7 +2,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-15 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,10 +25,10 @@ class RemoveProjectFromRevision < ActiveRecord::Migration
 
   def down
     add_column :dmsf_file_revisions, :project_id, :integer, :null => true
-
+    DmsfFileRevision.reset_column_information
     DmsfFileRevision.find_each do |revision|
       if revision.dmsf_file
-        revision.project_id = revision.dmsf_file.project_id
+        revision.project_id = revision.dmsf_file.project.id
         revision.save
       end
     end

@@ -3,7 +3,7 @@
 # Redmine plugin for Document Management System "Features"
 #
 # Copyright (C) 2011    Vít Jonáš <vit.jonas@gmail.com>
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,6 +28,7 @@ class DmsfFileRevision < ActiveRecord::Base
   belongs_to :source_revision, :class_name => 'DmsfFileRevision', :foreign_key => 'source_dmsf_file_revision_id'
   belongs_to :user
   belongs_to :deleted_by_user, :class_name => 'User', :foreign_key => 'deleted_by_user_id'
+  belongs_to :dmsf_workflow
   has_many :dmsf_file_revision_access, :dependent => :destroy
   has_many :dmsf_workflow_step_assignment, :dependent => :destroy
 
@@ -48,14 +49,11 @@ class DmsfFileRevision < ActiveRecord::Base
     :timestamp => "#{DmsfFileRevision.table_name}.updated_at",
     :author_key => "#{DmsfFileRevision.table_name}.user_id",
     :permission => :view_dmsf_file_revisions,
-    :scope => select("#{DmsfFileRevision.table_name}.*").
-      joins(
-        "INNER JOIN #{DmsfFile.table_name} ON #{DmsfFileRevision.table_name}.dmsf_file_id = #{DmsfFile.table_name}.id " +
-        "INNER JOIN #{Project.table_name} ON #{DmsfFile.table_name}.project_id = #{Project.table_name}.id").
-      where("#{DmsfFile.table_name}.deleted = ?", STATUS_ACTIVE)
+    :scope => DmsfFileRevision.joins(:dmsf_file).
+      joins("JOIN #{Project.table_name} ON #{Project.table_name}.id = #{DmsfFile.table_name}.project_id").visible
 
   validates :title, :presence => true
-  validates_format_of :name, :with => DmsfFolder.invalid_characters,
+  validates_format_of :name, :with => DmsfFolder::INVALID_CHARACTERS,
     :message => l(:error_contains_invalid_character)
 
   def project
@@ -73,6 +71,10 @@ class DmsfFileRevision < ActiveRecord::Base
   def self.filename_to_title(filename)
     remove_extension(filename).gsub(/_+/, ' ');
   end
+ 
+  def self.easy_activity_custom_project_scope(scope, options, event_type)
+    scope.where(:dmsf_files => { :project_id => options[:project_ids] })
+  end
 
   def delete(commit = false, force = true)
     if self.dmsf_file.locked_for_user?
@@ -83,11 +85,7 @@ class DmsfFileRevision < ActiveRecord::Base
       errors[:base] << l(:error_at_least_one_revision_must_be_present)
       return false
     end
-    dependent = DmsfFileRevision.where(:source_dmsf_file_revision_id => self.id).all
-    dependent.each do |d|
-      d.source_revision = self.source_revision
-      d.save!
-    end
+
     if commit
       self.destroy
     else
@@ -104,10 +102,16 @@ class DmsfFileRevision < ActiveRecord::Base
   end
 
   def destroy
+    dependent = DmsfFileRevision.where(:source_dmsf_file_revision_id => self.id).all
+    dependent.each do |d|
+      d.source_revision = self.source_revision
+      d.save!
+    end
     if Setting.plugin_redmine_dmsf['dmsf_really_delete_files']
-      dependencies = DmsfFileRevision.where(:disk_filename => self.disk_filename).all.count
+      dependencies = DmsfFileRevision.where(:disk_filename => self.disk_filename).count
       File.delete(self.disk_file) if dependencies <= 1 && File.exist?(self.disk_file)
     end
+    RedmineDmsf::Webdav::Cache.invalidate_item(propfind_cache_key)
     super
   end
 
@@ -129,16 +133,38 @@ class DmsfFileRevision < ActiveRecord::Base
   def version
     "#{self.major_version}.#{self.minor_version}"
   end
+  
+  def storage_base_path
+    time = self.created_at || DateTime.now
+    path = time.strftime('%Y/%m')
+    DmsfFile.storage_path.join path
+  end
 
-  def disk_file(project = nil)
-    project = self.dmsf_file.project unless project
-    storage_base = DmsfFile.storage_path.dup
-    if self.dmsf_file && project
-      project_base = project.identifier.gsub(/[^\w\.\-]/,'_')
-      storage_base << "/p_#{project_base}"
+  def disk_file(search_if_not_exists = true)
+    path = self.storage_base_path
+    FileUtils.mkdir_p(path) unless File.exist?(path)
+    filename = path.join(self.disk_filename)
+    if search_if_not_exists
+      unless File.exist?(filename)
+        # Let's search for the physical file in source revisions
+        revisions = self.dmsf_file.dmsf_file_revisions.where(['id < ?', self.id]).order(:id => :desc)
+        revisions.each do |rev|
+          filename = rev.disk_file
+          break if File.exist?(filename)
+        end
+      end
     end
-    FileUtils.mkdir_p(storage_base) unless File.exist?(storage_base)
-    "#{storage_base}/#{self.disk_filename}"
+    filename
+  end
+
+  def new_storage_filename
+    raise DmsfAccessError, 'File id is not set' unless self.dmsf_file.id
+    filename = DmsfHelper.sanitize_filename(self.name)
+    timestamp = DateTime.now.strftime("%y%m%d%H%M%S")
+    while File.exist?(storage_base_path.join("#{timestamp}_#{self.dmsf_file.id}_#{filename}"))
+      timestamp.succ!
+    end
+    "#{timestamp}_#{self.dmsf_file.id}_#{filename}"
   end
 
   def detect_content_type
@@ -221,16 +247,6 @@ class DmsfFileRevision < ActiveRecord::Base
     end
   end
 
-  def new_storage_filename
-    raise DmsfAccessError, 'File id is not set' unless self.dmsf_file.id
-    filename = DmsfHelper.sanitize_filename(self.name)
-    timestamp = DateTime.now.strftime("%y%m%d%H%M%S")
-    while File.exist?(File.join(DmsfFile.storage_path, "#{timestamp}_#{self.dmsf_file.id}_#{filename}"))
-      timestamp.succ!
-    end
-    "#{timestamp}_#{self.dmsf_file.id}_#{filename}"
-  end
-
   def copy_file_content(open_file)
     File.open(self.disk_file, 'wb') do |f|
       while (buffer = open_file.read(8192))
@@ -257,13 +273,15 @@ class DmsfFileRevision < ActiveRecord::Base
     else
       filename = self.name
     end
-    format.sub!('%t', self.title)
-    format.sub!('%f', filename)
-    format.sub!('%d', self.updated_at.strftime('%Y%m%d%H%M%S'))
-    format.sub!('%v', self.version)
-    format.sub!('%i', self.dmsf_file.id.to_s)
-    format.sub!('%r', self.id.to_s)
-    format + ext
+    format2 = format.dup
+    format2.sub!('%t', self.title)
+    format2.sub!('%f', filename)
+    format2.sub!('%d', self.updated_at.strftime('%Y%m%d%H%M%S'))
+    format2.sub!('%v', self.version)
+    format2.sub!('%i', self.dmsf_file.id.to_s)
+    format2.sub!('%r', self.id.to_s)
+    format2 += ext if ext
+    format2
   end
 
   def self.create_digest(path)
@@ -271,18 +289,12 @@ class DmsfFileRevision < ActiveRecord::Base
       Digest::MD5.file(path).hexdigest
     rescue Exception => e
       Rails.logger.error e.message
-      nil
+      0
     end
   end
 
   def create_digest
-    begin
-      self.digest = Digest::MD5.file(self.disk_file).hexdigest
-      true
-    rescue Exception => e
-      Rails.logger.error e.message
-      false
-    end
+    self.digest = DmsfFileRevision.create_digest(self.disk_file)
   end
 
   def tooltip
@@ -293,6 +305,42 @@ class DmsfFileRevision < ActiveRecord::Base
       text += self.comment
     end
     ActionView::Base.full_sanitizer.sanitize(text)
+  end
+  
+  def save(*args)
+    RedmineDmsf::Webdav::Cache.invalidate_item(propfind_cache_key)
+    super(*args)
+  end
+
+  def save!(*args)
+    RedmineDmsf::Webdav::Cache.invalidate_item(propfind_cache_key)
+    super(*args)
+  end
+  
+  def propfind_cache_key
+    dmsf_file.propfind_cache_key
+  end
+
+  def workflow_tooltip
+    tooltip = ''
+    if self.dmsf_workflow
+      case workflow
+        when DmsfWorkflow::STATE_WAITING_FOR_APPROVAL, DmsfWorkflow::STATE_ASSIGNED
+          assignments = self.dmsf_workflow.next_assignments(self.id)
+          if assignments
+            assignments.each_with_index do |assignment, index|
+              tooltip << ', ' if index > 0
+              tooltip << assignment.user.name
+            end
+          end
+        when DmsfWorkflow::STATE_APPROVED, DmsfWorkflow::STATE_REJECTED
+          action = DmsfWorkflowStepAction.joins(:dmsf_workflow_step_assignment).where(
+            :dmsf_workflow_step_assignments => { :dmsf_file_revision_id => self.id }).order(
+            'dmsf_workflow_step_actions.id').last
+          tooltip << action.author.name if action
+      end
+    end
+    tooltip
   end
 
 end

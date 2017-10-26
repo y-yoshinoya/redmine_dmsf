@@ -2,7 +2,7 @@
 #
 # Redmine plugin for Document Management System "Features"
 #
-# Copyright (C) 2011-16 Karel Pičman <karel.picman@kontron.com>
+# Copyright (C) 2011-17 Karel Pičman <karel.picman@kontron.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -196,12 +196,14 @@ class DmsfWorkflowsControllerTest < RedmineDmsf::Test::TestCase
 
   def test_add_step
     assert_difference 'DmsfWorkflowStep.count', +1 do
-      post :add_step, :commit => l(:dmsf_or), :step => 1, :id => @wf1.id, :user_ids => [@user_non_member.id]
+      post :add_step, :commit => l(:dmsf_or), :step => 1, :name => '1st step', :id => @wf1.id,
+           :user_ids => [@user_non_member.id]
     end
     assert_response :success
-    ws = DmsfWorkflowStep.order('id DESC').first
+    ws = DmsfWorkflowStep.order(:id => :desc).first
     assert_equal @wf1.id, ws.dmsf_workflow_id
     assert_equal 1, ws.step
+    assert_equal '1st step', ws.name
     assert_equal @user_non_member.id, ws.user_id
     assert_equal DmsfWorkflowStep::OPERATOR_OR, ws.operator
   end
@@ -211,8 +213,8 @@ class DmsfWorkflowsControllerTest < RedmineDmsf::Test::TestCase
     assert_difference 'DmsfWorkflowStep.count', -n do
       delete :remove_step, :step => @wfs1.id, :id => @wf1.id
     end
-    assert_response :success
-    ws = DmsfWorkflowStep.where(:dmsf_workflow_id => @wf1.id).order('id ASC').first
+    assert_response :redirect
+    ws = DmsfWorkflowStep.where(:dmsf_workflow_id => @wf1.id).order(:id =>:asc).first
     assert_equal 1, ws.step
   end
 
@@ -317,7 +319,7 @@ class DmsfWorkflowsControllerTest < RedmineDmsf::Test::TestCase
       :dmsf_file_revision_id => @revision2.id,
       :title => l(:title_waiting_for_approval))
       assert_response :success
-      assert_match /ajax-modal/, response.body
+      assert_match(/ajax-modal/, response.body)
       assert_template 'action'
   end
 
@@ -347,7 +349,7 @@ class DmsfWorkflowsControllerTest < RedmineDmsf::Test::TestCase
       :dmsf_file_revision_id => @revision1.id,
       :title => l(:label_dmsf_wokflow_action_assign))
     assert_response :success
-    assert_match /ajax-modal/, response.body
+    assert_match(/ajax-modal/, response.body)
     assert_template 'assign'
   end
 
@@ -366,6 +368,32 @@ class DmsfWorkflowsControllerTest < RedmineDmsf::Test::TestCase
       :dmsf_file_revision_id => @revision2.id,
       :action => 'assignment',
       :project_id => @project1.id)
+    assert_response :redirect
+  end
+
+  def test_update_step_name
+    put :update_step, :id => @wf1, :step => @wfs2.step.to_s, :dmsf_workflow => {:name => 'new_name'}
+    assert_response :redirect
+    @wfs2.reload
+    assert_equal @wfs2.name, 'new_name'
+    @wfs3.reload
+    assert_equal @wfs3.name, 'new_name'
+  end
+
+  def test_update_step_operators
+    put :update_step, :id => @wf1, :step => '1', :operator_step => {@wfs1.id.to_s => DmsfWorkflowStep::OPERATOR_OR.to_s}
+    assert_response :redirect
+    @wfs1.reload
+    assert_equal @wfs1.operator, DmsfWorkflowStep::OPERATOR_OR
+  end
+
+  def test_delete_step
+    name = @wfs2.name
+    assert_difference 'DmsfWorkflowStep.count', -1 do
+      delete :delete_step, :id => @wf1, :step => @wfs2.id
+    end
+    @wfs3.reload
+    assert_equal @wfs3.name, name
     assert_response :redirect
   end
 
